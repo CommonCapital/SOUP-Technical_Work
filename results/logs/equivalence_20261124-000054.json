@@ -1,0 +1,80 @@
+{
+  "model": "tiny Qwen3 (random)",
+  "n_layers": 4,
+  "fp32": {
+    "logits_nmax": 1.0813495237016468e-06,
+    "logits_rfro": 6.038835635990836e-07,
+    "loss_engine": -1.755448341369629,
+    "loss_ref": -1.755441665649414,
+    "grad_nmax_max": 2.1324151475710096e-06,
+    "grad_nmax_median": 1.0583213452264317e-06,
+    "n_grad_tensors": 56,
+    "grad_rfro_max": 1.7942022623174125e-06,
+    "PASS": true
+  },
+  "copies": {
+    "train_pass_B2_mb1": 7,
+    "train_pass_B6_mb2": 7,
+    "max_copies_of_one_layer": 2,
+    "bounds": [
+      7,
+      8
+    ],
+    "PASS": true,
+    "generation": 320,
+    "generation_expected": 320
+  },
+  "ref_logp_vs_adapter_off": 0.0,
+  "padding_invariance_nmax": 1.2443231867109716e-07,
+  "variants_nmax": {
+    "n_buffers=2": 8.004489586710406e-07,
+    "resident_layers=2": 8.004489586710406e-07,
+    "verify_copies": 8.004489586710406e-07
+  },
+  "generation_greedy": {
+    "prompts": 50,
+    "identical": 50,
+    "first_diff": null,
+    "PASS": true
+  },
+  "gen_vs_train_logp_nmax": 1.903136990222265e-07,
+  "bf16": {
+    "nmax": {
+      "noise_logits": 0.015625,
+      "l2l_logits": 0.0,
+      "noise_grads": 0.05204806104302406,
+      "l2l_grads": 0.0005132477963343263,
+      "vs_fp32_truth": {
+        "l2l_logits": 0.027748487889766693,
+        "eager_logits": 0.02916627749800682,
+        "sdpa_logits": 0.027748487889766693,
+        "l2l_grads": 0.06906121969223022,
+        "eager_grads": 0.059270307421684265,
+        "sdpa_grads": 0.06906147301197052
+      }
+    },
+    "rfro": {
+      "noise_logits": 0.012975860387086868,
+      "l2l_logits": 0.0,
+      "noise_grads": 0.03573230281472206,
+      "l2l_grads": 0.0003022610326297581,
+      "vs_fp32_truth": {
+        "l2l_logits": 0.01658332720398903,
+        "eager_logits": 0.0170122180134058,
+        "sdpa_logits": 0.01658332720398903,
+        "l2l_grads": 0.04509403184056282,
+        "eager_grads": 0.04199906066060066,
+        "sdpa_grads": 0.04509400948882103
+      }
+    }
+  },
+  "bf16_PASS": true,
+  "padding_PASS": true,
+  "PASS": true,
+  "env": {
+    "torch": "2.15.0",
+    "device": "cpu",
+    "platform": "macOS-26.6.2-arm64-arm-64bit",
+    "seconds": 5.8
+  }
+}

@@ -44,6 +44,72 @@ The ID log is written before the work, so after a kill the last line may belong
 to a step that never finished; resume drops it. Tested with 10 `kill -9`, one
 inside the batch that crosses the epoch boundary.
 
+## Day 2 (2026-11-24): the engine
+
+**What L2L does, in one breath.** Weights sit in CPU RAM, one flat block per
+layer. For each layer: copy it to the GPU once, push every sequence through
+it, move on. A second CUDA stream copies layer N+1 while layer N computes,
+using a ring of 3 GPU buffers, with events so a buffer is never overwritten
+while still in use.
+
+**Training pass = checkpointing at layer boundaries.** Forward without
+gradients, saving only each layer's input (to CPU RAM). Then compute log-probs
+only for answer tokens, 512 rows at a time (full logits for 8k tokens would be
+~5 GB). Then go backward through the layers in reverse: reload the layer,
+recompute it from its saved input with autograd on, push the gradient through.
+Only LoRA A/B get gradients.
+
+**Why compare against Hugging Face, not my own plain model.** Comparing the
+engine against itself would hide a shared math bug. HF's Qwen3 is an
+independent implementation, so matching it to 1e-6 in fp32 checks both the
+Qwen3 math (q/k norm, RoPE, GQA) and the streaming.
+
+**Why the bf16 tolerance is measured, not chosen.** bf16 is never bit-exact.
+Running HF twice with two attention kernels (eager vs sdpa) shows how much
+two correct implementations disagree (1.6% on logits here). The engine must
+be within 1.5× of that. It was bit-identical to the sdpa path on logits.
+
+**Two bugs the tests found.** (1) A scored token right after padding would be
+predicted from a pad position. Fixed: a position is scored only if the token
+before it is real. (2) My copy-count expectation was wrong: at the turn from
+forward to backward, the last layer is still in a buffer, so it is reused.
+The real claim is "never more than once per direction, independent of batch".
+
+**Reference model for KL costs no PCIe.** The same loaded layer is run a
+second time with the adapter switched off, so no extra copies.
+
+**Why groups with zero advantage are skipped in training.** With β = 0 their
+gradient is exactly zero, so streaming them through backward is wasted time.
+
+**Constant loss normalizer.** Loss is divided by (number of answers × 256),
+not by each answer's length, so long and short answers are weighted equally
+per token (no length bias).
+
+**Adam's first step surprise (0.6B on the Mac).** With lr 1e-4 and only one
+useful group, one update changed the model's style from one-line answers to
+long reasoning. Reason: Adam's first update is about lr × sign(gradient) for
+every parameter, however small the gradient. So lr matters more than the
+gradient size early on. On the GPU: lr 2e-5, and watch answer length.
+
+**The merge that was mathematically right and still wrong (E07).** On the
+0.6B test adapter, the merged bf16 model behaved exactly like the base model.
+Debugging in two halves: merging in fp32 in memory matched the adapter to
+2e-4, so the formula W + (α/r)·B·A, the names and the transpose are correct.
+The problem is storage: bf16 has only 8 bits of mantissa, so a weight of 0.02
+can only change in steps of about 0.00012 (2⁻¹³), and a change smaller than
+half a step (0.00006) is rounded away. The adapter's changes were
+smaller, so rounding threw away 88% of them. The adapter itself keeps working
+because it is computed separately in fp32. Lesson for the interview: a check
+that only asks "did the merge run and keep the same size" would have passed.
+That's why the plan compares the merged model's *outputs* with the adapter's.
+Whether it hits the real 4B run depends on how far training moves the
+weights (H29).
+
+**My own test harness had a bug (E06).** `kill -9 $!` after `uv run ...` kills
+uv, not Python. The "killed" trainer kept running next to the resumed one.
+Fixed, and the trainer now locks its run folder so this can't happen in a
+real run either.
+
 **Open point noticed.** The plan's register says 200 prompts per difficulty for
 H24, the pilot section says 100 × 4. Decided before the pilot: 100 × 4, plus
 100 more for the chosen level if it is within 10 points of an edge.

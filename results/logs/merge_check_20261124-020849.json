@@ -1,0 +1,11 @@
+{
+  "n_prompts": 8,
+  "greedy_exact_match_share": 0.0,
+  "greedy_token_agreement_until_first_diff": 0.0,
+  "logp_max_abs_diff_merged_vs_adapter": 1.9479490518569946,
+  "logp_noise_floor_microbatch_1_vs_8": 2.956390380859375e-05,
+  "first_layers_checksum_base": 3217.64599609375,
+  "first_layers_checksum_merged": 3217.699951171875,
+  "merged_differs_from_base": true,
+  "PASS": false
+}

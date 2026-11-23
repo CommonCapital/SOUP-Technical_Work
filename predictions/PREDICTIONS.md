@@ -73,6 +73,28 @@ section says 100 prompts × 4 samples. **Decision (made before the pilot):
 in a band, ~19 min per level). If the chosen level's mean is within 10 points
 of the 20% or 60% edge, add 100 more prompts for that level only.
 
+## Clarifications added 2026-11-24 (before any GPU run)
+
+- **H4 count.** "Copies = 36 × passes" is made precise as: each layer is
+  copied at most once per direction per pass, and the count does not depend on
+  batch size. A training pass is forward + backward, so 2 × 36, minus 1 when
+  the last forward layer is still in the ring buffer at the turn (measured on
+  CPU: 2L − 1).
+- **H27 numeric rule.** "Logit difference at bf16 noise level" is made
+  concrete: max |Δ log p| of merged vs adapter on the adapter's own greedy
+  answers ≤ 3 × the noise floor (same adapter model, micro-batch 1 vs 8), and
+  greedy token agreement ≥ 99%, and merged weights ≠ base weights.
+- **Metric for H17.** Elementwise relative error is undefined near 0, so
+  "max relative error" is computed as max|x − ref| / max|ref|; relative
+  Frobenius error is reported too. bf16 passes only if both metrics are within
+  1.5× of the measured eager↔sdpa noise.
+
+## New hypothesis added 2026-11-24 after E07 (before any GPU run)
+
+| ID | Hypothesis and why | Prediction | Test and decision rule | If wrong |
+|---|---|---|---|---|
+| H29 | The bf16 merged file keeps the learned change for the real run. Estimate: after ~40 Adam steps at lr 2e-5, B entries ~1e-4–8e-4, so ΔW elements ~1e-4–4e-4, while half a bf16 step of a typical Qwen3-4B weight (~0.02) is ~6e-5 (step 2⁻¹³ ≈ 1.2e-4) | `delta_lost_to_rounding_share` < 30% and merged-bf16 passes H27 | merge.py report + merge_check.py; confirmed if H27 passes for the bf16 file | the bf16 merged model is NOT the trained model: ship the adapter (or an fp32 merge, 2× size) and say so; report the lost share and the eval gap merged-bf16 vs adapter |
+
 ## Pilot level-selection rule (written before seeing any pilot number)
 
 1. Levels tried in order: n4 (middle) → then n3 or n5 depending on result.
