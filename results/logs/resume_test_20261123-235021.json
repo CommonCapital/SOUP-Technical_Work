@@ -1,0 +1,102 @@
+{
+  "hypothesis": "H19",
+  "steps": 200,
+  "batch": 16,
+  "n_records": 1500,
+  "epochs_crossed": [
+    0,
+    1,
+    2
+  ],
+  "n_kills": 10,
+  "kills": [
+    {
+      "target_step": 0,
+      "committed_step": null,
+      "epoch": null,
+      "position": null
+    },
+    {
+      "target_step": 13,
+      "committed_step": 13,
+      "epoch": 0,
+      "position": 208
+    },
+    {
+      "target_step": 19,
+      "committed_step": 19,
+      "epoch": 0,
+      "position": 304
+    },
+    {
+      "target_step": 39,
+      "committed_step": 40,
+      "epoch": 0,
+      "position": 640
+    },
+    {
+      "target_step": 83,
+      "committed_step": 83,
+      "epoch": 0,
+      "position": 1328
+    },
+    {
+      "target_step": 93,
+      "committed_step": 93,
+      "epoch": 0,
+      "position": 1488
+    },
+    {
+      "target_step": 94,
+      "committed_step": 94,
+      "epoch": 1,
+      "position": 4
+    },
+    {
+      "target_step": 102,
+      "committed_step": 102,
+      "epoch": 1,
+      "position": 132
+    },
+    {
+      "target_step": 167,
+      "committed_step": 167,
+      "epoch": 1,
+      "position": 1172
+    },
+    {
+      "target_step": 187,
+      "committed_step": 187,
+      "epoch": 1,
+      "position": 1492
+    }
+  ],
+  "mid_epoch_kills": 9,
+  "epochs_with_kills": [
+    0,
+    1
+  ],
+  "identical_step_ids": true,
+  "identical_rng_draws": true,
+  "same_length": true,
+  "steps_logged": [
+    200,
+    200
+  ],
+  "duplicate_steps": 0,
+  "missing_steps": [],
+  "within_epoch_duplicate_ids": 0,
+  "resume_messages": [
+    "resumed at step 13 (epoch 0, pos 208); dropped 1 uncommitted log lines",
+    "resumed at step 19 (epoch 0, pos 304); dropped 1 uncommitted log lines",
+    "resumed at step 40 (epoch 0, pos 640); dropped 1 uncommitted log lines",
+    "resumed at step 83 (epoch 0, pos 1328); dropped 1 uncommitted log lines",
+    "resumed at step 93 (epoch 0, pos 1488); dropped 1 uncommitted log lines",
+    "resumed at step 94 (epoch 1, pos 4); dropped 1 uncommitted log lines",
+    "resumed at step 102 (epoch 1, pos 132); dropped 1 uncommitted log lines",
+    "resumed at step 167 (epoch 1, pos 1172); dropped 1 uncommitted log lines",
+    "resumed at step 187 (epoch 1, pos 1492); dropped 1 uncommitted log lines"
+  ],
+  "tmp_dir": "/var/folders/f_/km5h6x8n3vvfq7tlt17qs4k00000gn/T/resume_test_zo2j1ym6",
+  "PASS": true
+}

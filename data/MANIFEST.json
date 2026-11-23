@@ -1,0 +1,69 @@
+{
+  "harder_split_of": {
+    "n3": "n4",
+    "n4": "n5",
+    "n5": "n6"
+  },
+  "files": {
+    "heldout_n3.jsonl": {
+      "n": 500,
+      "sha256": "83333057fa0bc42d8a7b0f3a828dc1440cf27b938db418fc9a09530d3104d1bb"
+    },
+    "heldout_n3_addsub.jsonl": {
+      "n": 500,
+      "sha256": "4f77a83799a3e76968a4527a8752c9fe491c59c6b7f4bea67d08e7e065f5462c"
+    },
+    "heldout_n4.jsonl": {
+      "n": 500,
+      "sha256": "e7c0c1fe0979a69b7b41c8ea71d292250e1c12fb77160f2f9c4e7b7895edc456"
+    },
+    "heldout_n5.jsonl": {
+      "n": 500,
+      "sha256": "b4ac428d0e70ea1168b0997e87192a86e149a279a57d538507c0571755cd0094"
+    },
+    "heldout_n6.jsonl": {
+      "n": 500,
+      "sha256": "d7f42f7c0739357210ae58e342ea2941dd4efe07b8607e76737733c5185d54c1"
+    },
+    "pilot_n3.jsonl": {
+      "n": 100,
+      "sha256": "e7975b4c126c3c9ba38c1d4c4c06f205273db6cc28d03ba222de962fa23a6eb5"
+    },
+    "pilot_n3_addsub.jsonl": {
+      "n": 100,
+      "sha256": "f6b7aa77e3c9501ec9177e0c50b8ff39c476c7de304482b47aa0e0e7a2f68743"
+    },
+    "pilot_n4.jsonl": {
+      "n": 100,
+      "sha256": "3d5b0eebc530b76c05d0d0a94bc4904ad744bd9ef840d05fc5cd550c2bd494cd"
+    },
+    "pilot_n5.jsonl": {
+      "n": 100,
+      "sha256": "323c46c11e96d2fe7d2b3c6c737668f8c7d1c363126d4538be44e96ab14831b3"
+    },
+    "pilot_n6.jsonl": {
+      "n": 100,
+      "sha256": "6019a67398dfd112cc6bd5706c70210f43f94e0b78ee50d13925135ef8ae9aed"
+    },
+    "train_n3.jsonl": {
+      "n": 1500,
+      "sha256": "2ae4fe112e1504365f08c11026c6eef263853c3b6f595916f5cef353408a60f2"
+    },
+    "train_n3_addsub.jsonl": {
+      "n": 1500,
+      "sha256": "dac1158d161a31592b68120bdee61d77fc94f362264a4d665e6fcb83d292f2e6"
+    },
+    "train_n4.jsonl": {
+      "n": 1500,
+      "sha256": "fa333d99346ec977357177adf541c9046bbeee7255a7c2cca2510ffa237e4149"
+    },
+    "train_n5.jsonl": {
+      "n": 1500,
+      "sha256": "b988c6875ae7d1ace31007b3995026db7b718dd189b93b816951c9f53fb75d23"
+    },
+    "train_n6.jsonl": {
+      "n": 1500,
+      "sha256": "6be80d2ed68dc21b9afae76406120ca091aed60f28f4ddbc9c8fafcce0d0009b"
+    }
+  }
+}

@@ -1,0 +1,11 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+# model weights and large run artifacts never go into git
+*.safetensors
+*.bin
+*.pt
+checkpoints/
+runs/
+hf_cache/
