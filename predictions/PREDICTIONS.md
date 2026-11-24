@@ -95,6 +95,28 @@ of the 20% or 60% edge, add 100 more prompts for that level only.
 |---|---|---|---|---|
 | H29 | The bf16 merged file keeps the learned change for the real run. Estimate: after ~40 Adam steps at lr 2e-5, B entries ~1e-4–8e-4, so ΔW elements ~1e-4–4e-4, while half a bf16 step of a typical Qwen3-4B weight (~0.02) is ~6e-5 (step 2⁻¹³ ≈ 1.2e-4) | `delta_lost_to_rounding_share` < 30% and merged-bf16 passes H27 | merge.py report + merge_check.py; confirmed if H27 passes for the bf16 file | the bf16 merged model is NOT the trained model: ship the adapter (or an fp32 merge, 2× size) and say so; report the lost share and the eval gap merged-bf16 vs adapter |
 
+## Hardware change and H30, added 2026-11-24 (before any GPU run)
+
+The GPU is a free Kaggle T4 (16 GB, Turing, no bf16), not an 8 GB Ampere
+card. The 8 GB cap is enforced by a ballast process. All runs use fp16 weights
+and matmuls with an fp32 residual stream. Time predictions (H1, H15, H16)
+stay as written; any gap from the slower card is reported, not re-predicted.
+
+| ID | Hypothesis and why | Prediction | Test and decision rule | If wrong |
+|---|---|---|---|---|
+| H30 | fp16 with an fp32 residual does not change Qwen3-4B's behaviour: fp16 has more mantissa bits than bf16, the weights are bf16 values (fp16 can hold them except tiny ones below ~6e-5, which become less precise), and the residual, where overflow would happen, stays fp32 | teacher-forced top-1 agreement with fp32 ≥ 99%, mean \|Δ log p\| ≤ 0.01, zero non-finite values (8 pilot prompts, 128 tokens) | `scripts/gpu/fp16_check.py`; all three must hold | do not pilot or train in fp16: find the layer that overflows; run that part in fp32 |
+
+## Prompt v2 and H31, added 2026-11-24 (before any Qwen3-4B pilot)
+
+Prompt v1 was changed after a **local smoke test on Qwen3-0.6B** (E09), not
+after any 4B result: the small model copied the prompt's numeric example and
+answered in ~20 tokens without working, often adding "* 1". v2 removes the
+example, asks for brief visible work and restates "no other numbers".
+
+| ID | Hypothesis and why | Prediction | Test and decision rule | If wrong |
+|---|---|---|---|---|
+| H31 | v2 gives the 4B model a fairer start: no example to copy, room to work before answering | v2 accuracy ≥ v1 at n4; v2 answers longer but truncation < 5% | Pilot both at n4 (100 × 4). Choice rule: if exactly one is in 20–60% → that one; if both → more mixed prompts; if neither → higher accuracy (then the search loop runs with it). Both reported | keep v1; report that the example did not hurt the 4B |
+
 ## Pilot level-selection rule (written before seeing any pilot number)
 
 1. Levels tried in order: n4 (middle) → then n3 or n5 depending on result.

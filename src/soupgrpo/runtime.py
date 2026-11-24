@@ -18,7 +18,7 @@ from .prompts import completion_has_thinking, get_tokenizer, render_prompt
 from .reward import countdown_reward
 from .weights import WeightStore
 
-DTYPES = {"bf16": torch.bfloat16, "fp32": torch.float32}
+DTYPES = {"bf16": torch.bfloat16, "fp16": torch.float16, "fp32": torch.float32}
 
 
 def resolve_model_dir(model: str) -> Path:
@@ -53,8 +53,11 @@ def stop_ids(tok) -> tuple[int, ...]:
     return tuple(sorted(i for i in ids if i is not None and i >= 0))
 
 
-def encode_prompts(tok, puzzles: list[dict]) -> list[list[int]]:
-    return [tok(render_prompt(p["numbers"], p["target"], tok), add_special_tokens=False).input_ids for p in puzzles]
+def encode_prompts(tok, puzzles: list[dict], version: str | None = None) -> list[list[int]]:
+    from .prompts import DEFAULT_PROMPT
+    v = version or DEFAULT_PROMPT
+    return [tok(render_prompt(p["numbers"], p["target"], tok, v), add_special_tokens=False).input_ids
+            for p in puzzles]
 
 
 def score_completions(tok, puzzles, outs, stops) -> list[dict]:

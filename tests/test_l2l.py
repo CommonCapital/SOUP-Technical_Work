@@ -47,3 +47,11 @@ def test_reference_is_adapter_off(res):
 
 def test_buffer_variants_identical(res):
     assert max(res["variants_nmax"].values()) <= 1e-5
+
+
+def test_fp16_mode_at_least_as_accurate_as_bf16():
+    from soupgrpo.equivalence import fp16_mode_check
+    r = fp16_mode_check(n_layers=3)
+    assert r["residual_dtype"] == "torch.float32"
+    assert r["nonfinite_events"] == 0
+    assert r["PASS"], r

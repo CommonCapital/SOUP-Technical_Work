@@ -47,15 +47,16 @@ def main():
     ap.add_argument("--max-new", type=int, default=256)
     ap.add_argument("--batch", type=int, default=64)
     ap.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
-    ap.add_argument("--dtype", default="bf16")
+    ap.add_argument("--dtype", default="bf16", choices=["bf16", "fp16", "fp32"])
     ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument("--prompt", default="v2", choices=["v1", "v2"], help="prompt version (prompts.py)")
     a = ap.parse_args()
 
     eng, mdir = build_engine(a.model, a.device, a.dtype, adapter=a.adapter)
     tok = tokenizer_for(mdir)
     stops = stop_ids(tok)
     puzzles = load_puzzles(a.data, a.limit)
-    pids = encode_prompts(tok, puzzles)
+    pids = encode_prompts(tok, puzzles, a.prompt)
     rep_p = [p for p in pids for _ in range(a.samples)]
     rep_z = [z for z in puzzles for _ in range(a.samples)]
     gen = torch.Generator(device=a.device).manual_seed(a.seed)
@@ -90,6 +91,7 @@ def main():
         "len_mean": float(np.mean([r["n_tokens"] for r in rows])),
         "len_p95": float(np.percentile([r["n_tokens"] for r in rows], 95)),
         "seconds": secs, "engine_timers_s": dict(eng.timers), "copies": eng.streamer.stats.copies,
+        "dtype": a.dtype, "prompt": a.prompt, "nonfinite_events": eng.nonfinite_events,
         "gpu": gpu_mem(), "smi_mib": nvidia_smi_used_mib(),
         "time": time.strftime("%Y-%m-%dT%H:%M:%S"),
     }

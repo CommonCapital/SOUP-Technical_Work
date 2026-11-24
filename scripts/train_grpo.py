@@ -60,6 +60,7 @@ def parse():
     ap.add_argument("--grad-clip", type=float, default=1.0)
     ap.add_argument("--shuffle-rewards", action="store_true", help="negative control")
     ap.add_argument("--seed", type=int, default=1234)
+    ap.add_argument("--prompt", default="v2", choices=["v1", "v2"], help="prompt version (prompts.py)")
     ap.add_argument("--n-buffers", type=int, default=3)
     ap.add_argument("--resident-layers", type=int, default=0)
     ap.add_argument("--no-prefetch", action="store_true")
@@ -134,7 +135,7 @@ def main():
         # ---- rollouts (on-policy: current LoRA is active)
         batch = stream.next_batch(a.prompts_per_step)
         append_id_log(ids_log, step, [r["id"] for r in batch], {"epochs": sorted({r["_epoch"] for r in batch})})
-        pids = encode_prompts(tok, batch)
+        pids = encode_prompts(tok, batch, a.prompt)
         rep_p = [p for p in pids for _ in range(a.group)]
         rep_z = [z for z in batch for _ in range(a.group)]
         outs = eng.generate(rep_p, a.max_new, a.temperature, stops, pad_id, a.gen_batch, gen)
@@ -220,6 +221,7 @@ def main():
             "copied_gb": (eng.streamer.stats.bytes - bytes0) / 2**30,
             "time_s": {**T, "total": time.perf_counter() - t0},
             "engine_timers_s": dict(eng.timers), "host_rss_gb": host_rss_gb(),
+            "nonfinite_events": eng.nonfinite_events,
             "epoch": stream.state.epoch, "position": stream.state.position,
         })
         prev_delta = delta

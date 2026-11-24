@@ -13,18 +13,36 @@ from functools import lru_cache
 
 MODEL_ID = "Qwen/Qwen3-4B"
 
-USER_TEMPLATE = (
-    "Using the numbers {numbers}, create an equation that equals {target}. "
-    "You may use +, -, * and / and parentheses, and each number must be used exactly once. "
-    "Think step by step briefly, then give only the final equation inside <answer></answer> tags, "
-    "for example <answer>(1 + 2) * 3</answer>."
-)
+# v1: first version. Local smoke test on Qwen3-0.6B (E09) showed the model
+#     copying the numeric example "(1 + 2) * 3" and answering in ~20 tokens
+#     without working anything out.
+# v2: no numeric example (nothing to copy); asks for short visible work first;
+#     restates the rules the 0.6B model broke (only the given numbers, "* 1" is
+#     an extra number).
+PROMPTS = {
+    "v1": (
+        "Using the numbers {numbers}, create an equation that equals {target}. "
+        "You may use +, -, * and / and parentheses, and each number must be used exactly once. "
+        "Think step by step briefly, then give only the final equation inside <answer></answer> tags, "
+        "for example <answer>(1 + 2) * 3</answer>."
+    ),
+    "v2": (
+        "Using the numbers {numbers}, create an equation that equals {target}. "
+        "Use each of these numbers exactly once and no other numbers. "
+        "You may use +, -, * and / and parentheses. "
+        "First work it out briefly: try a few combinations and check the arithmetic. "
+        "Then write only the final equation (without '= {target}') inside <answer></answer> tags "
+        "at the end of your reply."
+    ),
+}
+DEFAULT_PROMPT = "v2"
+USER_TEMPLATE = PROMPTS[DEFAULT_PROMPT]
 
 EMPTY_THINK = "<think>\n\n</think>\n\n"
 
 
-def user_message(numbers: list[int], target: int) -> str:
-    return USER_TEMPLATE.format(numbers=", ".join(str(n) for n in numbers), target=target)
+def user_message(numbers: list[int], target: int, version: str = DEFAULT_PROMPT) -> str:
+    return PROMPTS[version].format(numbers=", ".join(str(n) for n in numbers), target=target)
 
 
 @lru_cache(maxsize=4)
@@ -38,9 +56,9 @@ def get_tokenizer(model_id: str = MODEL_ID):
     return tok
 
 
-def render_prompt(numbers: list[int], target: int, tokenizer=None) -> str:
+def render_prompt(numbers: list[int], target: int, tokenizer=None, version: str = DEFAULT_PROMPT) -> str:
     tok = tokenizer or get_tokenizer()
-    msgs = [{"role": "user", "content": user_message(numbers, target)}]
+    msgs = [{"role": "user", "content": user_message(numbers, target, version)}]
     text = tok.apply_chat_template(msgs, tokenize=False, add_generation_prompt=True,
                                    enable_thinking=False)
     return text

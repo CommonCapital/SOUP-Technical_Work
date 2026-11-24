@@ -248,3 +248,41 @@ def run_all(n_layers: int = 4, gen_prompts: int = 50, verbose: bool = True) -> d
         import json
         print(json.dumps(res, indent=2, default=str))
     return res
+
+
+def fp16_mode_check(n_layers: int = 4) -> dict:
+    """fp16 weights/matmuls with an fp32 residual stream (T4 path) vs the fp32
+    truth (HF eager fp32). Decision rule: fp16-mode error <= plain HF bf16 error
+    on logits and LoRA grads (fp16 has 3 more mantissa bits than bf16, so it
+    should be at least as accurate unless something overflows)."""
+    tmp = Path(tempfile.mkdtemp(prefix="tiny_qwen3_fp16_"))
+    mdir = make_tiny_qwen3(tmp, n_layers=n_layers)
+    ids, attn, loss_mask, w = make_batch(512)
+    real = attn.bool()
+    out = {}
+    hf32 = load_hf(mdir, torch.float32, "eager")
+    lora32 = LoRA(WeightStore(mdir, dtype=torch.float32).dims, r=4, alpha=8, seed=1, b_init_std=0.05)
+    rp32 = attach_reference_lora(hf32, lora32)
+    l32, _, ls = _ref_forward_loss(hf32, ids, attn, loss_mask, w)
+    ls.backward()
+    g32 = [p.grad for p in rp32]
+    hf16 = load_hf(mdir, torch.bfloat16, "sdpa")
+    rpb = attach_reference_lora(hf16, lora32)
+    lb, _, lsb = _ref_forward_loss(hf16, ids, attn, loss_mask, w)
+    lsb.backward()
+    st = WeightStore(mdir, dtype=torch.float16)
+    lora = LoRA(st.dims, r=4, alpha=8, seed=1, b_init_std=0.05)
+    eng = L2LEngine(st, lora=lora)
+    lf = eng.full_logits(ids, attn, micro_batch=4)
+    _engine_loss(eng, ids, attn, loss_mask, w)
+    for metric, fn in (("nmax", nmax), ("rfro", rfro)):
+        out[metric] = {
+            "fp16_logits_vs_fp32": fn(lf[real], l32[real]), "bf16_logits_vs_fp32": fn(lb[real].float(), l32[real]),
+            "fp16_grads_vs_fp32": max(fn(p.grad, r) for p, r in zip(lora.parameters(), g32)),
+            "bf16_grads_vs_fp32": max(fn(p.grad, r) for p, r in zip(rpb, g32)),
+        }
+    out["residual_dtype"] = str(eng.res_dtype)
+    out["nonfinite_events"] = eng.nonfinite_events
+    out["PASS"] = all(o["fp16_logits_vs_fp32"] <= o["bf16_logits_vs_fp32"] and
+                      o["fp16_grads_vs_fp32"] <= o["bf16_grads_vs_fp32"] for o in (out["nmax"], out["rfro"]))
+    return out

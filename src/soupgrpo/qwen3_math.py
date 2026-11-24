@@ -19,6 +19,8 @@ from dataclasses import dataclass
 import torch
 import torch.nn.functional as F
 
+_HAS_GQA = tuple(int(x) for x in torch.__version__.split("+")[0].split(".")[:2]) >= (2, 5)
+
 PROJ_SHAPES = ("q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj")
 
 
@@ -124,7 +126,8 @@ def decoder_layer(x, w: dict, d: Qwen3Dims, cos, sin, attn_mask, lora: dict | No
     [kv_pos, kv_pos+T) and attention runs over kv[:, :, :kv_pos+T].
     """
     B, T, _ = x.shape
-    h = rms_norm(x, w["ln1"], d.rms_eps)
+    cd = w["q_proj"].dtype  # compute dtype; x may be fp32 (fp16 mode keeps the residual in fp32)
+    h = rms_norm(x, w["ln1"], d.rms_eps).to(cd)
     q = linear(h, w["q_proj"], lora, "q_proj", lora_scale).view(B, T, d.n_heads, d.head_dim)
     k = linear(h, w["k_proj"], lora, "k_proj", lora_scale).view(B, T, d.n_kv_heads, d.head_dim)
     v = linear(h, w["v_proj"], lora, "v_proj", lora_scale).view(B, T, d.n_kv_heads, d.head_dim)
@@ -136,11 +139,16 @@ def decoder_layer(x, w: dict, d: Qwen3Dims, cos, sin, attn_mask, lora: dict | No
         kv.k[:, :, kv_pos:kv_pos + T] = k
         kv.v[:, :, kv_pos:kv_pos + T] = v
         k, v = kv.k[:, :, :kv_pos + T], kv.v[:, :, :kv_pos + T]
-    o = F.scaled_dot_product_attention(q, k, v, attn_mask=attn_mask, scale=d.head_dim ** -0.5,
-                                       enable_gqa=d.n_heads != d.n_kv_heads)
+    if d.n_heads != d.n_kv_heads and not _HAS_GQA:  # torch < 2.5
+        rep = d.n_heads // d.n_kv_heads
+        k, v = k.repeat_interleave(rep, dim=1), v.repeat_interleave(rep, dim=1)
+        o = F.scaled_dot_product_attention(q, k, v, attn_mask=attn_mask, scale=d.head_dim ** -0.5)
+    else:
+        o = F.scaled_dot_product_attention(q, k, v, attn_mask=attn_mask, scale=d.head_dim ** -0.5,
+                                           enable_gqa=d.n_heads != d.n_kv_heads)
     o = o.transpose(1, 2).reshape(B, T, d.n_heads * d.head_dim)
     x = x + linear(o, w["o_proj"], lora, "o_proj", lora_scale)
-    h = rms_norm(x, w["ln2"], d.rms_eps)
+    h = rms_norm(x, w["ln2"], d.rms_eps).to(cd)
     g = linear(h, w["gate_proj"], lora, "gate_proj", lora_scale)
     u = linear(h, w["up_proj"], lora, "up_proj", lora_scale)
     return x + linear(F.silu(g) * u, w["down_proj"], lora, "down_proj", lora_scale)

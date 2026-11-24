@@ -110,6 +110,25 @@ uv, not Python. The "killed" trainer kept running next to the resumed one.
 Fixed, and the trainer now locks its run folder so this can't happen in a
 real run either.
 
+## Kaggle T4 (2026-11-24)
+
+**Why fp16 needs an fp32 residual.** fp16 can't go above 65,504. Each layer
+adds its output to a running "residual" vector, and in big models that vector
+can grow past fp16's limit and become infinity. So the residual stays fp32 and
+only the matrix multiplies (where the speed is) run in fp16. bf16 doesn't
+have this problem (same range as fp32) but has fewer precision bits, which is
+why fp16 mode came out 10× more precise on the tiny test.
+
+**Why a ballast process and not a memory limit.** PyTorch's memory fraction
+only limits PyTorch's own allocator inside our process; it doesn't count the
+CUDA context and isn't what nvidia-smi shows. A second process that grabs
+everything above 8 GB makes the card behave like an 8 GB card for us: if we
+needed more, we'd crash, just as on real hardware.
+
+**Why check fp16 before the pilot.** If fp16 quietly changed the model's
+answers, the pilot's accuracy would describe a different model than the one
+we train. So the notebook stops if H30 fails.
+
 **Open point noticed.** The plan's register says 200 prompts per difficulty for
 H24, the pilot section says 100 × 4. Decided before the pilot: 100 × 4, plus
 100 more for the chosen level if it is within 10 points of an edge.

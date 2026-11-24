@@ -163,11 +163,18 @@ class GenOutput:
 class L2LEngine:
     def __init__(self, store: WeightStore, device="cpu", lora: LoRA | None = None, n_buffers: int = 3,
                  prefetch: bool = True, resident_layers: int = 0, verify_copies: bool = False,
-                 logit_chunk: int = 512):
+                 logit_chunk: int = 512, residual_fp32: bool | None = None):
         self.store = store
         self.d = store.dims
         self.device = torch.device(device)
         self.dtype = store.dtype
+        # Residual stream dtype. fp16 (T4: no bf16) has a max of 65504, and the
+        # residual stream of LLMs can grow past that, so in fp16 mode the hidden
+        # state between sublayers is kept in fp32; matmuls still run in fp16.
+        if residual_fp32 is None:
+            residual_fp32 = store.dtype == torch.float16
+        self.res_dtype = torch.float32 if residual_fp32 else store.dtype
+        self.nonfinite_events = 0
         r = store.resident
         self.embed = r["model.embed_tokens.weight"].to(self.device)
         self.final_norm = r["model.norm.weight"].to(self.device)
@@ -189,7 +196,10 @@ class L2LEngine:
         return self.lora.scale if self.lora is not None else 1.0
 
     def head_logits(self, h: torch.Tensor) -> torch.Tensor:
-        return F.linear(rms_norm(h, self.final_norm, self.d.rms_eps), self.lm_head).float()
+        return F.linear(rms_norm(h, self.final_norm, self.d.rms_eps).to(self.lm_head.dtype), self.lm_head).float()
+
+    def _embed(self, ids):
+        return F.embedding(ids, self.embed).to(self.res_dtype)
 
     def _sync(self):
         if self.device.type == "cuda":
@@ -227,7 +237,7 @@ class L2LEngine:
 
         t0 = time.perf_counter()
         # prefill
-        x = F.embedding(ids, self.embed)
+        x = self._embed(ids)
         pos = position_ids_from_mask(attn[:, :P])
         cos, sin = rope_cos_sin(pos, d.head_dim, d.rope_theta, self.dtype)
         mask = build_attn_mask(attn[:, :P], P, P)
@@ -242,6 +252,10 @@ class L2LEngine:
         finished = torch.zeros(B, dtype=torch.bool, device=dev)
         lengths = torch.full((B,), max_new, dtype=torch.long, device=dev)
         for t in range(max_new):
+            bad = ~torch.isfinite(logits).all(-1) & ~finished
+            if bool(bad.any()):  # fp16 overflow guard: count it, never sample from NaN/inf
+                self.nonfinite_events += int(bad.sum())
+                logits = torch.nan_to_num(logits, nan=0.0, posinf=1e4, neginf=-1e4)
             if temperature == 0:
                 tok = logits.argmax(-1)
                 lp = torch.log_softmax(logits, -1).gather(-1, tok[:, None])[:, 0]
@@ -260,7 +274,7 @@ class L2LEngine:
             # feed tok at KV position P + t
             kp = P + t
             attn[:, kp] = 1  # finished rows keep decoding pad tokens; their outputs are discarded
-            x = F.embedding(tok[:, None], self.embed)
+            x = self._embed(tok[:, None])
             pos = position_ids_from_mask(attn[:, :kp + 1])[:, -1:]
             cos, sin = rope_cos_sin(pos, d.head_dim, d.rope_theta, self.dtype)
             mask = build_attn_mask(attn[:, :kp + 1], 1, kp + 1)
@@ -293,7 +307,7 @@ class L2LEngine:
     @torch.no_grad()
     def _forward(self, mbs, save_boundaries: bool, with_ref: bool, lora_enabled: bool = True):
         d = self.d
-        xs = [F.embedding(m["ids"], self.embed) for m in mbs]
+        xs = [self._embed(m["ids"]) for m in mbs]
         xr = [x.clone() for x in xs] if with_ref else None
         offsets = []
         if save_boundaries:
@@ -301,7 +315,7 @@ class L2LEngine:
             for x in xs:
                 offsets.append(off)
                 off += x.numel()
-            self.boundaries.ensure(d.n_layers, off, self.dtype)
+            self.boundaries.ensure(d.n_layers, off, self.res_dtype)
         for li, w in self.streamer.run(range(d.n_layers)):
             for j, m in enumerate(mbs):
                 if save_boundaries:
@@ -382,6 +396,9 @@ class L2LEngine:
                     if with_ref:
                         with torch.no_grad():
                             ref_lp = torch.log_softmax(self.head_logits(xr[j][bb, tt - 1]), -1).gather(-1, tgt)[:, 0]
+                    if not bool(torch.isfinite(lp).all()):
+                        self.nonfinite_events += int((~torch.isfinite(lp)).sum())
+                        raise FloatingPointError("non-finite log-probs in training pass (fp16 overflow?)")
                     loss = loss_fn(lp, ref_lp, s + bb, tt)
                     loss.backward()
                 grads[j].index_put_((bb, tt - 1), rows.grad.to(grads[j].dtype), accumulate=True)
