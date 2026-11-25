@@ -132,3 +132,34 @@ we train. So the notebook stops if H30 fails.
 **Open point noticed.** The plan's register says 200 prompts per difficulty for
 H24, the pilot section says 100 × 4. Decided before the pilot: 100 × 4, plus
 100 more for the chosen level if it is within 10 points of an edge.
+
+## Kaggle pilot 1 (2026-11-25): what we learned and why it matters
+
+- **The engine is right on the GPU too.** The background-copy version (prefetch)
+  gives the same numbers as the plain version (1e-6), so the copy stream never
+  hands the GPU a half-copied layer.
+- **fp16 is safe on the T4** (H30): 99.8% same top token as fp32, average
+  log-prob change 0.0008, no overflow, and twice as fast as fp32.
+- **Speed matches the model of the machine** (H15): one decoding step over all
+  36 layers takes 0.61 s; the prediction from PCIe speed (7.26 GB ÷ 12.3 GB/s)
+  was 0.59 s. Decoding is limited by copying weights, so a bigger batch is
+  almost free per token — that is why batches are as big as memory allows.
+- **The checker had a bug, found by reading answers** (E11). The model wrote
+  "put the equation inside the <answer> tags:" before its real answer, and the
+  checker read from the first "<answer>". It rejected correct answers, 9 points
+  of accuracy at 3 numbers. My automatic false-negative list missed it because
+  it only looked at answers whose value it could compute. Lesson for the
+  report: an automatic check only finds the failures you imagined; reading
+  outputs finds the rest. Fix + regression tests + rescoring of all saved
+  answers (only wrong→right flips, 56 of 1,600).
+- **The length cap was measuring the wrong thing.** At 256 tokens, 65% of the
+  4-number answers were cut off; of those that finished, ~80% were right. So
+  "accuracy" mostly measured "finishes in time". If we trained like that, GRPO
+  could raise the score by teaching the model to write less, not to calculate
+  better. Hence pilot 2 at 512 tokens, and H9 is judged on accuracy among
+  finished answers too.
+- **Memory: the cap held, but only just.** A formula bug in my own summary
+  printed 8,291 MiB; the true number is 8,184 of 8,190 allowed. Real tensors
+  peaked at 5.8 GiB; the other ~2 GiB was PyTorch's cache keeping freed blocks.
+  Fix: expandable segments (less fragmentation) and a fallback that halves a
+  batch on out-of-memory and logs it.
