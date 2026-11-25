@@ -20,6 +20,7 @@ import tarfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+STAGE = __import__("os").environ.get("SOUP_STAGE", "pilot1")   # pilot1 | pilot2
 INCLUDE = ["src", "scripts", "tests", "data", "predictions", "pyproject.toml", "README.md", "GPU_RUNBOOK.md"]
 
 
@@ -61,6 +62,18 @@ What it does, in order (every step writes a timestamped log):
    then the summary that picks the training level.
 """
 
+MD_INTRO_PILOT2 = """# Soup GRPO task: step 1b, second pilot with longer answers (Kaggle T4)
+
+**Before running:** Settings, then **Accelerator: GPU T4 x2** and **Internet: On**. Then **Save Version ->
+Save & Run All (Commit)** and close the tab. Takes about **1 h 45 min**. When the version shows Complete, open
+its **Output** tab and download **`soup_results.zip`**.
+
+Why: in the first pilot, 65% of the 4-number answers were cut off at 256 tokens, so the pilot measured
+"finishes in 256 tokens" more than arithmetic. The pre-registered rule says: raise the cap. This run uses
+**512 new tokens** for 4 and 5 numbers (rule and predictions in `predictions/PREDICTIONS.md`, "Pilot 2"),
+with the checker fixed in E11. Steps 1-5 are the same safety checks as before (8 GB cap, CUDA equivalence).
+"""
+
 CELLS: list[tuple[str, str]] = []
 
 
@@ -82,12 +95,33 @@ def guarded(src: str):
                   + "else:\n    print('skipped because an earlier step failed:', STOP)"))
 
 
+PILOT2_CELL = '''
+# 7. Pilot 2 (pre-registered in predictions/PREDICTIONS.md, "Pilot 2"): prompt v2, 512 new tokens, batch 48
+DTYPE = "fp32" if LOCAL_TEST else "fp16"
+LIMIT = ["--limit", "4"] if LOCAL_TEST else []
+MAXNEW = "48" if LOCAL_TEST else "512"
+def pilot(level, prompt="v2"):
+    out = REPO / f"results/pilot/{level}_{prompt}_512"
+    run([PY, "scripts/sample_eval.py", "--model", MODEL, "--device", DEVICE, "--dtype", DTYPE, "--prompt", prompt,
+         "--data", f"data/pilot_{level}.jsonl", "--samples", "4", "--temperature", "1.0",
+         "--max-new", MAXNEW, "--batch", "48", "--out", out, *LIMIT], log=f"pilot2_{level}.txt")
+    return json.loads(out.with_suffix(".summary.json").read_text())
+acc = {}
+for level in ["n4", "n5"]:
+    s = pilot(level)
+    acc[level] = s["accuracy"]
+    print(f"==> {level}/v2 @512: {s['accuracy']:.1%}, mixed {s['mixed_prompt_share']:.1%}, "
+          f"truncated {s['truncated_share']:.1%}, OOM splits {s.get('oom_splits')}")
+(REPO / "results/pilot/choice2.json").write_text(json.dumps({"prompt": "v2", "max_new": 512, "accuracy": acc}, indent=2))
+'''
+
+
 def md(src: str):
     CELLS.append(("markdown", src.strip("\n")))
 
 
 def build_cells(b64: str, sha: str, rev: str):
-    md(MD_INTRO)
+    md(MD_INTRO if STAGE == "pilot1" else MD_INTRO_PILOT2)
     code(f'''
 # 1. Unpack code + data (git {rev}, bundle sha256 {sha[:16]})
 import base64, hashlib, io, json, os, subprocess, sys, tarfile, time
@@ -135,6 +169,7 @@ PY = sys.executable
 STOP = None   # set by the first failing step; later steps are skipped, results are still packed
 os.environ["CUDA_VISIBLE_DEVICES"] = "0"          # one GPU, as in the task
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
+os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"   # less cache fragmentation (pilot 1: 2 GiB)
 MODEL = "Qwen/Qwen3-0.6B" if LOCAL_TEST else "Qwen/Qwen3-4B"
 DEVICE = "cpu" if LOCAL_TEST else "cuda"
 ''')
@@ -189,7 +224,8 @@ if not LOCAL_TEST:
 if not LOCAL_TEST:
     run([PY, "scripts/gpu/pcie_bench.py"], log="pcie.txt")
 ''')
-    guarded('''
+    if STAGE == "pilot1":
+      guarded('''
 # 6. H30: fp16 vs fp32 on the real model (T4 has no bf16). Stop here if it fails.
 n, mx = (3, 32) if LOCAL_TEST else (8, 128)
 run([PY, "scripts/gpu/fp16_check.py", "--model", MODEL, "--device", DEVICE, "--n", n, "--max-new", mx],
@@ -200,7 +236,10 @@ assert H30["PASS"], "fp16 changes the model's behaviour: do not pilot in fp16 (s
 if os.environ.get("SOUP_FORCE_FAIL") == "fp16":   # local test of the failure path only
     raise AssertionError("forced failure (test)")
 ''')
-    guarded('''
+    if STAGE == "pilot2":
+        guarded(PILOT2_CELL)
+    else:
+      guarded('''
 # 7. Pilot (H24) + prompt A/B (H31): base model, 100 puzzles x 4 answers, T=1.0, 256 new tokens, fp16
 DTYPE = "fp32" if LOCAL_TEST else "fp16"
 LIMIT = ["--limit", "6"] if LOCAL_TEST else []
@@ -247,9 +286,12 @@ if not LOCAL_TEST and "smi_log" in globals() and "BALLAST" in globals():
     import csv
     rows = list(csv.reader(open(smi_log.name)))[1:]
     used = [int(r[1].strip().split()[0]) for r in rows if len(r) > 1 and r[1].strip().split()[0].isdigit()]
-    peak = max(used) - BALLAST["ballast_used_mib"]
-    cap = {"smi_peak_total_mib": max(used), "ballast_used_mib": BALLAST["ballast_used_mib"],
-           "our_peak_mib": peak, "under_8192": peak < 8192, "samples": len(used)}
+    # subtract everything that was on the card before our processes started (ballast + driver baseline);
+    # pilot 1 subtracted only the ballast and over-reported by the 107 MiB baseline (E12)
+    peak = max(used) - BALLAST["smi_used_after_mib"]
+    cap = {"smi_peak_total_mib": max(used), "smi_before_us_mib": BALLAST["smi_used_after_mib"],
+           "ballast_used_mib": BALLAST["ballast_used_mib"], "our_peak_mib": peak,
+           "cap_mib": BALLAST["cap_mib"], "under_cap": peak <= BALLAST["cap_mib"], "samples": len(used)}
     (REPO / "results/logs/cap_summary.json").write_text(json.dumps(cap, indent=2))
     print(cap)
 import shutil
@@ -274,10 +316,11 @@ def main():
         if kind == "code":
             c.update({"execution_count": None, "outputs": []})
         nb["cells"].append(c)
-    out = ROOT / "kaggle" / "soup_pilot.ipynb"
+    name = "soup_pilot" if STAGE == "pilot1" else f"soup_{STAGE}"
+    out = ROOT / "kaggle" / f"{name}.ipynb"
     out.write_text(json.dumps(nb, indent=1))
     script = "\n\n".join(src for kind, src in CELLS if kind == "code")
-    (ROOT / "kaggle" / "soup_pilot_cells.py").write_text(script + "\n")
+    (ROOT / "kaggle" / f"{name}_cells.py").write_text(script + "\n")
     print(f"wrote {out} ({out.stat().st_size / 1e6:.1f} MB), bundle sha256 {sha[:16]}, git {rev}")
 
 

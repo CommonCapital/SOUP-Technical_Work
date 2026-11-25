@@ -1,0 +1,27 @@
+{
+  "prefetch_3buf": {
+    "logits_nmax": 1.1996173725492554e-06,
+    "grad_nmax_max": 4.403740149427904e-06,
+    "greedy_identical": true,
+    "PASS": true
+  },
+  "prefetch_2buf": {
+    "logits_nmax": 1.1996173725492554e-06,
+    "grad_nmax_max": 4.403740149427904e-06,
+    "greedy_identical": true,
+    "PASS": true
+  },
+  "prefetch_3buf_verify": {
+    "logits_nmax": 1.1996173725492554e-06,
+    "grad_nmax_max": 4.403740149427904e-06,
+    "greedy_identical": true,
+    "PASS": true
+  },
+  "no_prefetch": {
+    "logits_nmax": 1.1996173725492554e-06,
+    "grad_nmax_max": 4.403740149427904e-06,
+    "greedy_identical": true,
+    "PASS": true
+  },
+  "PASS": true
+}

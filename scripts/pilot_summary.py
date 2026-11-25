@@ -65,11 +65,16 @@ def main():
     # answers to read by hand
     rng = random.Random(0)
     for s in sorted(rows, key=lambda r: r["_level"]):
-        ans = [json.loads(l) for l in open(Path(s["_file"]).with_suffix("").with_suffix(".jsonl"))]
+        src = s.get("rescored_from") or str(Path(s["_file"]).with_suffix("").with_suffix(".jsonl"))
+        ans = [json.loads(l) for l in open(src)]
         fn = [a for a in ans if a["value_correct"] and not a["reward"]]
         print(f"\n===== {s['_level']}: value right but rejected ({len(fn)}; check for checker false negatives)")
         for a in fn[:5]:
             print(f"  {a['numbers']} -> {a['target']}: {a['expr']!r}  [{a['error']}]")
+        pf = [a for a in ans if a["tag_present"] and not a["parsed"]]
+        print(f"===== {s['_level']}: tag present but not parsed ({len(pf)}; E11: check the checker reads the right block)")
+        for a in pf[:5]:
+            print(f"  {a['numbers']} -> {a['target']}: {a['expr']!r}  [{a['error']}]  tail {a['completion'][-80:]!r}")
         print(f"===== {s['_level']}: 4 random answers")
         for a in rng.sample(ans, min(4, len(ans))):
             print(f"  {a['numbers']} -> {a['target']} | reward {a['reward']} | {a['finish']} | "

@@ -1,0 +1,20 @@
+{
+  "hypothesis": "H30",
+  "model": "Qwen/Qwen3-4B",
+  "dtype_under_test": "fp16",
+  "n_prompts": 8,
+  "scored_positions": 1024,
+  "top1_agreement_teacher_forced": 0.998046875,
+  "mean_abs_dlogp": 0.0008372980519197881,
+  "max_abs_dlogp": 0.020232319831848145,
+  "max_abs_dlogit": 0.6484375,
+  "greedy_exact_match_share": 1.0,
+  "greedy_token_agreement_until_first_diff": 1.0,
+  "nonfinite_fp16": 0,
+  "nonfinite_fp32": 0,
+  "gen_seconds": {
+    "fp32": 155.785452454,
+    "fp16": 77.46092485200006
+  },
+  "PASS": true
+}

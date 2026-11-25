@@ -1,0 +1,40 @@
+level         acc          95% CI  mixed   0/4   4/4   tag  value  trunc  think   len   p95  NaN  verdict
+n3/v2       53.0%  [48.1%, 57.8%]  63.0% 19.0% 18.0% 64.5%  53.8%  35.5%   0.0%   188   256    0  IN RANGE
+n4/v1       12.8%   [9.8%, 16.4%]  17.0% 78.0%  5.0% 100.0%  12.8%   0.0%   0.0%    22    22    0  outside 20-60%
+n4/v2       28.0%  [23.8%, 32.6%]  45.0% 48.0%  7.0% 35.2%  28.0%  65.0%   0.0%   229   256    0  IN RANGE
+n5/v2        5.0%    [3.3%, 7.6%]  15.0% 85.0%  0.0% 11.2%   5.0%  88.8%   0.0%   249   256    0  0-5%: read 20 answers, then easier
+
+CHOSEN by the pre-registered rule: n3/v2 (accuracy 53.0%, mixed 63.0%)
+  WARNING: truncation 35.5% >= 5%: raise --max-new before training
+  within 10 points of an edge: run 100 more prompts for this level (rule)
+
+===== n3/v2: value right but rejected (3; check for checker false negatives)
+  [94, 93, 92] -> 2: '(94 - 92) / (93 - 92)'  [numbers used [92, 92, 93, 94] != given [92, 93, 94]]
+  [94, 93, 92] -> 2: '(94 - 93) - (92 - 93)'  [numbers used [92, 93, 93, 94] != given [92, 93, 94]]
+  [94, 93, 92] -> 2: '(94 - 92)/(93 - 92)'  [numbers used [92, 92, 93, 94] != given [92, 93, 94]]
+===== n3/v2: 4 random answers
+  [17, 37, 55] -> 1 | reward 0.0 | length | 'To create an equation using the numbers 17, 37, and 55 exactly once, and using only the operations +, −, ×, ÷, and parentheses, such that the result is 1, we can try the following:\n\nWe are looking for:\n\n$$\n\\text{expression} = 1\n$$\n\nLet’s experiment with combinations.\n\nTry this:\n\n$$\n\\frac{55 - 37}{17'
+  [17, 77, 78] -> 16 | reward 1.0 | eos | 'To create an equation using the numbers 17, 77, and 78 exactly once that equals 16, we can try the following:\n\nStart by looking at the difference between 78 and 77:  \n**78 - 77 = 1**\n\nNow we have 1 and 17 left. To get 16, we can do:  \n**17 - 1 = 16**\n\nSo combining these steps:  \n**(78 - 77) = 1**  \n'
+  [71, 9, 16] -> 96 | reward 0.0 | length | "To solve the problem, we need to use the numbers **71, 9, 16** exactly once each to create an equation that equals **96**. Let's explore possible combinations.\n\nTry this expression:\n\n$$\n(71 - 16) + 9 = 55 + 9 = 64 \\quad \\text{(Too small)}\n$$\n\nTry another:\n\n$$\n(71 - 9) + 16 = 62 + 16 = 78 \\quad \\text"
+  [6, 29, 6] -> 41 | reward 1.0 | eos | 'To solve the problem, we are given the numbers **6, 29, 6** and must create an equation that equals **41** using each number exactly once, with operations **+, −, ×, ÷** and parentheses.\n\nLet’s test a few combinations:\n\nTry:\n$$\n29 + 6 - 6 = 29\n$$\nNot 41.\n\nTry:\n$$\n29 + 6 \\times 6 = 29 + 36 = 65\n$$\nTo'
+
+===== n4/v1: value right but rejected (0; check for checker false negatives)
+===== n4/v1: 4 random answers
+  [22, 84, 28, 10] -> 15 | reward 0.0 | eos | '<answer>(84 - 28 - 22) / 10</answer>'
+  [36, 3, 9, 8] -> 60 | reward 0.0 | eos | '<answer>8 * (9 - (36 / 3))</answer>'
+  [53, 14, 56, 47] -> 36 | reward 0.0 | eos | '<answer>(56 - 47) + (53 - 14)</answer>'
+  [96, 18, 35, 26] -> 53 | reward 0.0 | eos | '<answer>96 - 35 - 18 - 26</answer>'
+
+===== n4/v2: value right but rejected (0; check for checker false negatives)
+===== n4/v2: 4 random answers
+  [86, 15, 21, 39] -> 9 | reward 0.0 | length | 'To solve this, we need to use the numbers 86, 15, 21, and 39 exactly once, combining them with +, −, ×, ÷, and parentheses to make an expression that equals **9**.\n\nLet’s try:\n\n$$\n(86 - 39) - (21 + 15) = 47 - 36 = 11\n$$\n\nToo high.\n\nTry:\n\n$$\n(86 - 39) - (21 + 15) = 47 - 36 = 11 \\quad \\text{(same as a'
+  [6, 81, 5, 66] -> 26 | reward 0.0 | length | 'To solve the problem, we need to use the numbers **6, 81, 5, 66** exactly once with the operations **+, −, ×, ÷**, and parentheses to create an equation that equals **26**.\n\nLet’s try some combinations:\n\nWe note that **81 - 66 = 15**, and **15 + 6 = 21**, and **21 + 5 = 26** — but that uses **81, 66'
+  [29, 53, 5, 26] -> 3 | reward 0.0 | length | 'To solve this, we need to use the numbers 29, 53, 5, and 26 exactly once each, and combine them using the operations +, -, ×, ÷, and parentheses to get the result 3.\n\nLet’s try a few combinations:\n\nOne promising approach is:\n$$\n(53 - 29) - (26 \\div 5) = 3\n$$\n\nCalculating step by step:\n- $53 - 29 = 2'
+  [50, 22, 59, 70] -> 25 | reward 0.0 | length | "To solve this, we need to use the numbers 50, 22, 59, and 70 exactly once, with basic arithmetic operations (+, -, ×, ÷) and parentheses, to form an equation that equals **25**.\n\nLet's try combining numbers and operations:\n\nOne possible approach is to try:\n\n$$\n(70 - 59) + (50 - 22) = 11 + 28 = 39 \\q"
+
+===== n5/v2: value right but rejected (0; check for checker false negatives)
+===== n5/v2: 4 random answers
+  [89, 79, 71, 42, 10] -> 30 | reward 0.0 | eos | 'We are given the numbers: 89, 79, 71, 42, 10  \nWe need to create an equation using **each number exactly once** and the operations **+, -, ×, ÷**, and **parentheses** to reach **30**.\n\nLet’s test combinations. One valid solution is:\n\n**(89 - 79) + (71 - 42 - 10)**\n\nLet’s compute step by step:\n\n- (89'
+  [72, 76, 10, 39, 43] -> 18 | reward 0.0 | length | "To solve this, we need to use the numbers **72, 76, 10, 39, 43** exactly once with operations **+, -, ×, ÷** and parentheses to create an expression that equals **18**.\n\nLet's try combinations:\n\nTry:  \n**(76 - 43) = 33**  \n**39 - 10 = 29**  \n**72 ÷ something = 18** → 72 ÷ 4 = 18 → can we get 4 from "
+  [80, 42, 14, 43, 27] -> 94 | reward 0.0 | length | 'To create an equation that equals 94 using the numbers 80, 42, 14, 43, and 27 exactly once with the operations +, -, ×, and ÷, we can try the following:\n\nStart by combining 80 and 14:  \n80 + 14 = 94\n\nNow we have used 80 and 14. We still need to use 42, 43, and 27. To make the equation valid, we can '
+  [86, 33, 82, 99, 6] -> 30 | reward 0.0 | length | 'To solve this puzzle, we need to use the numbers **86, 33, 82, 99, 6** exactly once each, and combine them using **+**, **-**, **×**, **÷**, and parentheses to make an equation that equals **30**.\n\nLet’s test a few combinations:\n\nOne promising path is:\n\n$$\n(99 - 86) = 13 \\\\\n(82 - 33) = 49 \\\\\n13 + 49'

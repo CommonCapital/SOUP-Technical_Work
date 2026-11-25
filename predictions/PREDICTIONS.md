@@ -127,3 +127,33 @@ example, asks for brief visible work and restates "no other numbers".
    prompts with mixed results (1–3 of 4 correct). Tie → closer to 40%.
 5. Stop after ≈ 5 pilots; if none fits, take the closest and report it.
 6. Truncation must be < 5% at 256 new tokens, else raise the cap.
+
+## Pilot 2, added 2026-11-25 (after pilot 1, before pilot 2 runs)
+
+Pilot 1 (E01) chose **n4 with prompt v2** (31.2% after the E11 checker fix), but
+65% of n4 answers were cut off at 256 tokens. Rule 6 above says: raise the cap.
+The checker fix (E11) is a bug fix found by reading answers by hand; it only
+turned wrong into right (54 answers, none the other way) and is applied to all
+pilot numbers from now on.
+
+**Cap choice: 512 new tokens.** Not higher, for the free-GPU budget: one decode
+pass takes 0.61 s on the T4 (E12), so 512 tokens per GRPO step is ≈5 min of
+generation per step and ≈4.5 h per 40-step run; 768 tokens would make the two
+runs plus evaluation exceed the ~30 GPU-hours per week Kaggle gives.
+
+| ID | Prediction | Test and decision rule | If wrong |
+|---|---|---|---|
+| H32 | At 512 tokens, n4/v2 accuracy rises to 40–55% and truncation falls to 10–35%; n5/v2 rises to 10–25% | Pilot 2: n4/v2 and n5/v2, 100 prompts × 4, T = 1.0, 512 new tokens, batch 48 | report; the selection rule below decides anyway |
+
+**Selection rule for pilot 2** (replaces the pilot-1 choice once it has run):
+1. Candidates: n4/v2 and n5/v2 at 512. n3 is not rerun: it was already above
+   60% at 256 tokens (62.3%), and a longer cap can only finish more answers.
+2. Pick the level in 20–60% with the highest mixed share (tie → closer to 40%).
+   If neither is in range, take the one closest to 40% and report it.
+3. Training and evaluation use **512 new tokens** whatever the truncation share.
+   If truncation of the chosen level is still ≥ 5%, it is reported, and H9 is
+   judged on two numbers instead of one: accuracy, and accuracy among answers
+   that finished. A gain that comes only from fewer truncations (shorter
+   answers) is a format gain, not a skill gain (see H9).
+4. If the chosen level is within 10 points of 20% or 60%, 100 more prompts are
+   drawn from that level's train split, and those IDs are removed from training.

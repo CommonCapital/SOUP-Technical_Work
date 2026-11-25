@@ -1,0 +1,52 @@
+{
+ "model": "Qwen/Qwen3-4B",
+ "adapter": null,
+ "data": "data/pilot_n5.jsonl",
+ "n_prompts": 100,
+ "samples": 4,
+ "temperature": 1.0,
+ "max_new": 256,
+ "accuracy": 0.06,
+ "wilson95": [
+  0.0406476805246611,
+  0.0877234432030579
+ ],
+ "mixed_prompt_share": 0.18,
+ "all_wrong_share": 0.82,
+ "all_right_share": 0.0,
+ "per_prompt_hist": {
+  "0": 82,
+  "1": 12,
+  "2": 6
+ },
+ "tag_rate": 0.1125,
+ "parsed_rate": 0.1125,
+ "numbers_rate": 0.1075,
+ "value_rate": 0.06,
+ "truncated_share": 0.8875,
+ "thinking_share": 0.0,
+ "len_mean": 248.995,
+ "len_p95": 256.0,
+ "seconds": 1120.3122242099998,
+ "engine_timers_s": {
+  "load": 16.422181129455566,
+  "prefill": 24.625778704001732,
+  "decode": 1095.6543629599983
+ },
+ "copies": 64512,
+ "dtype": "fp16",
+ "prompt": "v2",
+ "nonfinite_events": 0,
+ "gpu": {
+  "alloc_gb": 1.2970013618469238,
+  "reserved_gb": 7.080078125,
+  "peak_alloc_gb": 5.843560695648193,
+  "peak_reserved_gb": 7.818359375
+ },
+ "smi_mib": 14141,
+ "time": "2026-11-25T12:07:42",
+ "rescored_from": "results/kaggle/pilot1/pilot/n5_v2.rescored.jsonl",
+ "original": "results/kaggle/pilot1/pilot/n5_v2.jsonl",
+ "old_accuracy": 0.05,
+ "n_flips": 4
+}

@@ -218,9 +218,24 @@ class L2LEngine:
                  generator: torch.Generator | None = None, lora_enabled: bool = True) -> list[GenOutput]:
         outs: list[GenOutput] = []
         for s in range(0, len(prompts), batch_size):
-            outs += self._generate_batch(prompts[s:s + batch_size], max_new_tokens, temperature,
-                                         stop_ids, pad_id, generator, lora_enabled)
+            outs += self._generate_safe(prompts[s:s + batch_size], max_new_tokens, temperature,
+                                        stop_ids, pad_id, generator, lora_enabled)
         return outs
+
+    def _generate_safe(self, prompts, *args):
+        """On CUDA out-of-memory, free the cache and run the batch as two halves.
+        Counted in self.oom_splits (a run that needed splits reports it). The RNG
+        stream then differs from an unsplit run, so splits are logged, not hidden."""
+        try:
+            return self._generate_batch(prompts, *args)
+        except torch.OutOfMemoryError:
+            if len(prompts) == 1:
+                raise
+            self.oom_splits = getattr(self, "oom_splits", 0) + 1
+            if self.device.type == "cuda":
+                torch.cuda.empty_cache()
+            h = len(prompts) // 2
+            return self._generate_safe(prompts[:h], *args) + self._generate_safe(prompts[h:], *args)
 
     def _generate_batch(self, prompts, max_new, temperature, stop_ids, pad_id, gen, lora_enabled):
         d, dev = self.d, self.device

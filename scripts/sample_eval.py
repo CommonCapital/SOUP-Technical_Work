@@ -91,7 +91,7 @@ def main():
         "len_mean": float(np.mean([r["n_tokens"] for r in rows])),
         "len_p95": float(np.percentile([r["n_tokens"] for r in rows], 95)),
         "seconds": secs, "engine_timers_s": dict(eng.timers), "copies": eng.streamer.stats.copies,
-        "dtype": a.dtype, "prompt": a.prompt, "nonfinite_events": eng.nonfinite_events,
+        "dtype": a.dtype, "prompt": a.prompt, "nonfinite_events": eng.nonfinite_events, "oom_splits": getattr(eng, "oom_splits", 0), "batch": a.batch,
         "gpu": gpu_mem(), "smi_mib": nvidia_smi_used_mib(),
         "time": time.strftime("%Y-%m-%dT%H:%M:%S"),
     }

@@ -102,3 +102,25 @@ def test_duplicate_given_numbers():
     assert countdown_reward("<answer>5 + 5 + 3</answer>", [5, 5, 3], 13).reward == 1.0
     assert countdown_reward("<answer>5 + 3 + 5 - 0</answer>", [5, 5, 3], 13).reward == 0.0
     assert countdown_reward("<answer>10 + 3</answer>", [5, 5, 3], 13).reward == 0.0
+
+
+def test_tag_named_in_prose_before_answer():
+    # E11: the 4B model writes "inside the <answer> tags:" before the real block
+    nums, target = [62, 47, 2], 17
+    for text in ["Now, write only the final equation inside the <answer> tags:\n\n<answer>(62 - 47) + 2</answer>",
+                 "Put it in <answer></answer> tags.\n<answer>(62 - 47) + 2</answer>",
+                 "<ANSWER> tags: <answer>(62 - 47) + 2</answer>"]:
+        r = countdown_reward(text, nums, target)
+        assert r.reward == 1.0, (text, r)
+
+
+def test_prose_tag_does_not_create_an_answer():
+    r = countdown_reward("I will use <answer> tags later. (62 - 47) + 2", [62, 47, 2], 17)
+    assert r.reward == 0.0 and not r.tag_present
+
+
+def test_target_on_the_left():
+    # E11: "<answer>59 = 39 + 23 - (62 - 59)</answer>"
+    assert countdown_reward("<answer>59 = 39 + 23 - (62 - 59)</answer>", [39, 62, 23, 59], 59).reward == 1.0
+    assert countdown_reward("<answer>58 = 39 + 23 - (62 - 59)</answer>", [39, 62, 23, 59], 59).reward == 0.0
+    assert countdown_reward("<answer>59 = 59</answer>", [39, 62, 23, 59], 59).reward == 0.0

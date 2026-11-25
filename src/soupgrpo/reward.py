@@ -21,7 +21,10 @@ from collections import Counter
 from dataclasses import asdict, dataclass
 from fractions import Fraction
 
-ANSWER_RE = re.compile(r"<answer>(.*?)</answer>", re.DOTALL | re.IGNORECASE)
+# A block's content may not contain another "<answer>": prose such as
+# "write it inside the <answer> tags: <answer>1+2</answer>" must yield "1+2"
+# (found in the first Qwen3-4B pilot, E11; the old pattern read "tags: <answer>1+2").
+ANSWER_RE = re.compile(r"<answer>((?:(?!<answer>).)*?)</answer>", re.DOTALL | re.IGNORECASE)
 MAX_EXPR_CHARS = 200          # guards the parser against huge inputs
 MAX_ABS_VALUE = 10**12        # guards against exponent-like blowups via *
 
@@ -64,13 +67,18 @@ def normalize_expr(s: str) -> str:
 
 
 def _split_equals(s: str) -> tuple[str, str | None]:
-    """Accept a trailing "= <number>" (e.g. "19 + 36 + 10 = 65"): a common,
+    """Accept "= <number>" on either side (e.g. "19 + 36 + 10 = 65"): a common,
     correct format we must not reject (silent-failure row "checker rejects a
     correct answer in another format"). Only the left side is evaluated; the
     right side must be a plain integer equal to the target."""
     if s.count("=") == 1:
-        left, right = s.split("=")
-        return left.strip(), right.strip()
+        left, right = (x.strip() for x in s.split("="))
+        # "<target> = <expression>" is the same claim written the other way round
+        # (seen in the 4B pilot, E11). Swap so the expression is evaluated; the
+        # plain-integer side must still equal the target.
+        if re.fullmatch(r"\d+", left) and not re.fullmatch(r"\d+", right):
+            left, right = right, left
+        return left, right
     if "=" in s:
         raise _Reject("more than one '='")
     return s, None
