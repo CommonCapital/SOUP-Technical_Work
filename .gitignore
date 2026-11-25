@@ -12,3 +12,4 @@ hf_cache/
 kaggle/push/
 kaggle/out/
 .DS_Store
+kaggle/*_cells.py
