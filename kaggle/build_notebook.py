@@ -99,7 +99,7 @@ BUNDLE = "{b64}"
 raw = base64.b64decode(BUNDLE)
 assert hashlib.sha256(raw).hexdigest() == "{sha}", "bundle corrupted"
 with tarfile.open(fileobj=io.BytesIO(raw), mode="r:gz") as tar:
-    tar.extractall(WORK)
+    tar.extractall(WORK, **({{"filter": "data"}} if hasattr(tarfile, "data_filter") else {{}}))
 REPO = WORK / "soup-grpo"
 os.chdir(REPO)
 sys.path.insert(0, str(REPO / "src"))
