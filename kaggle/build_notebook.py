@@ -20,7 +20,7 @@ import tarfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-STAGE = __import__("os").environ.get("SOUP_STAGE", "pilot1")   # pilot1 | pilot2 | dryrun
+STAGE = __import__("os").environ.get("SOUP_STAGE", "pilot1")   # pilot1 | pilot2 | dryrun | train_main | train_control
 INCLUDE = ["src", "scripts", "tests", "data", "predictions", "pyproject.toml", "README.md", "GPU_RUNBOOK.md"]
 
 
@@ -86,6 +86,19 @@ Everything here is pre-registered in `predictions/PREDICTIONS.md` ("Pilot 2 outc
 7. **Resume test on the 4B** (kill -9 mid-step, resume) and an **lr = 0** check, on easy puzzles so real updates happen.
 8. **Dry run: 5 real GRPO steps** with the final configuration (time per step, zero-advantage share, memory).
 9. **100 extra pilot puzzles** for the chosen level (5 numbers), as the selection rule requires.
+"""
+
+MD_INTRO_TRAIN = """# Soup GRPO task: step 3, {title} (Kaggle T4)
+
+**Before running:** Settings, then **Accelerator: GPU T4 x2** and **Internet: On**. Then **Save Version ->
+Save & Run All (Commit)** and close the tab. Takes about **{hours}**. It can run at the same time as the other
+training notebook. When the version shows Complete, open its **Output** tab and download **`soup_results.zip`**.
+
+Configuration and the SHIP rule are pre-registered in `predictions/PREDICTIONS.md` (training setup, the
+amendment after dry run 1, and "Evaluation protocol and the SHIP rule"). Steps 1-5 are the usual safety checks.
+{steps}
+If a session ever dies mid-run: add this notebook's failed version as an **Input** (Add Input -> Your Work) and
+run again; the training cell finds the saved run directory and resumes exactly (H19).
 """
 
 CELLS: list[tuple[str, str]] = []
@@ -193,12 +206,113 @@ run([PY, "scripts/sample_eval.py", "--model", MODEL, "--device", DEVICE, "--dtyp
 DRYRUN_CELLS = DRYRUN_CELLS_ALL[1:]
 
 
+# ---- training stage cells (@NAME@ = main | control)
+TRAIN_CELL = '''
+# 6. GRPO training, run "@NAME@" (configuration pre-registered; control differs only by --shuffle-rewards)
+import shutil
+NAME = "@NAME@"
+RUN = REPO / "runs" / NAME
+# resume support: a previous (failed) version of this notebook attached as Input
+prev = sorted(Path("/kaggle/input").glob(f"**/runs/{NAME}/state.json")) if Path("/kaggle/input").exists() else []
+if prev and not (RUN / "state.json").exists():
+    shutil.copytree(prev[-1].parent, RUN)
+    print("RESUMING from", prev[-1].parent)
+if LOCAL_TEST:
+    STEPS = 2
+    cfg = ["--prompts-per-step", "2", "--group", "4", "--max-new", "32", "--gen-batch", "8",
+           "--train-seqs-per-pass", "8", "--micro-batch", "4", "--dtype", "fp32"]
+else:
+    STEPS = 40
+    cfg = ["--prompts-per-step", "6", "--group", "8", "--max-new", "512", "--gen-batch", "48",
+           "--train-seqs-per-pass", "24", "--micro-batch", "8", "--dtype", "fp16"]
+run([PY, "scripts/train_grpo.py", "--model", MODEL, "--data", "data/train_n5_main.jsonl", "--prompt", "v2",
+     "--steps", STEPS, "--lr", "2e-5", "--warmup", "2", "--beta", "0", "--log-kl-every", "5", "--seed", "1234",
+     "--temperature", "1.0", *cfg, *[@EXTRA@], "--run-dir", RUN], log=f"train_{NAME}.txt")
+M = [json.loads(l) for l in open(RUN / "metrics.jsonl")]
+assert len(M) == STEPS and [m["step"] for m in M] == list(range(STEPS)), "steps missing or duplicated"
+ADAPTER = RUN / "ckpt" / f"step_{STEPS:05d}"
+assert (ADAPTER / "adapter_model.safetensors").exists(), ADAPTER
+shutil.copytree(ADAPTER, REPO / f"results/adapters/{NAME}", ignore=shutil.ignore_patterns("optimizer.pt", "gen_state.pt"),
+                dirs_exist_ok=True)
+shutil.copytree(RUN, REPO / f"results/runs/{NAME}", ignore=shutil.ignore_patterns("ckpt", ".lock"), dirs_exist_ok=True)
+import numpy as np
+for lo in range(0, STEPS, 10):
+    w = M[lo:lo + 10]
+    print(f"steps {lo}-{lo + len(w) - 1}: reward {np.mean([m['reward'] for m in w]):.3f} "
+          f"trunc {np.mean([m['truncated_share'] for m in w]):.2f} zero-adv {np.mean([m['zero_adv_group_share'] for m in w]):.2f} "
+          f"len {np.mean([m['len_mean'] for m in w]):.0f} adapter {w[-1]['adapter_delta_norm']:.3f} "
+          f"step {np.mean([m['time_s']['total'] for m in w]):.0f}s")
+print("KL to base (logged steps):", [(m["step"], m["kl_mean"]) for m in M if m.get("kl_mean") is not None])
+'''
+
+EVAL_HELDOUT_CELL = '''
+# 7. Held-out evaluation of the "@NAME@" adapter: 500 new 5-number puzzles, greedy, 512 tokens
+run([PY, "scripts/sample_eval.py", "--model", MODEL, "--adapter", ADAPTER, "--device", DEVICE,
+     "--dtype", "fp32" if LOCAL_TEST else "fp16", "--prompt", "v2", "--data", "data/heldout_n5.jsonl",
+     "--samples", "1", "--temperature", "0", "--max-new", "32" if LOCAL_TEST else "512", "--batch", "48",
+     *(["--limit", "6"] if LOCAL_TEST else []), "--out", REPO / "results/eval/@NAME@"], log="eval_@NAME@.txt")
+'''
+
+KL_CELL = '''
+# 8. H28: exact KL(policy || base) on the first 200 held-out answers of this adapter
+run([PY, "scripts/kl_eval.py", "--model", MODEL, "--adapter", ADAPTER, "--eval-jsonl", REPO / "results/eval/@NAME@.jsonl",
+     "--n", "6" if LOCAL_TEST else "200", "--dtype", "fp32" if LOCAL_TEST else "fp16",
+     "--out", REPO / "results/eval/kl_@NAME@.json"], log="kl_@NAME@.txt")
+'''
+
+MERGE_CELL = '''
+# 9. Merge (bf16, the shippable artifact) + H27/H29 check + held-out evaluation of the merged model
+MERGED = WORK / "merged_main"
+run([PY, "scripts/merge.py", "--model", MODEL, "--adapter", ADAPTER, "--out", MERGED, "--out-dtype", "bf16",
+     "--device", DEVICE], log="merge_main.txt")
+shutil.copy(MERGED / "merge_report.json", REPO / "results/logs/merge_report_main.json")
+run([PY, "scripts/merge_check.py", "--model", MODEL, "--adapter", ADAPTER, "--merged", MERGED,
+     "--data", "data/heldout_n5.jsonl", "--n", "6" if LOCAL_TEST else "50", "--max-new", "32" if LOCAL_TEST else "256",
+     "--device", DEVICE, "--dtype", "fp32" if LOCAL_TEST else "fp16"], log="merge_check_main.txt", check=False)
+run([PY, "scripts/sample_eval.py", "--model", MERGED, "--device", DEVICE,
+     "--dtype", "fp32" if LOCAL_TEST else "fp16", "--prompt", "v2", "--data", "data/heldout_n5.jsonl",
+     "--samples", "1", "--temperature", "0", "--max-new", "32" if LOCAL_TEST else "512", "--batch", "48",
+     *(["--limit", "6"] if LOCAL_TEST else []), "--out", REPO / "results/eval/merged_main"], log="eval_merged_main.txt")
+shutil.rmtree(MERGED)      # 8 GB; the zip must stay small. The adapter + merge.py recreate it exactly.
+'''
+
+BASE_EVAL_CELL = '''
+# 9. Held-out evaluation of the BASE model (reference for every comparison), same protocol
+run([PY, "scripts/sample_eval.py", "--model", MODEL, "--device", DEVICE,
+     "--dtype", "fp32" if LOCAL_TEST else "fp16", "--prompt", "v2", "--data", "data/heldout_n5.jsonl",
+     "--samples", "1", "--temperature", "0", "--max-new", "32" if LOCAL_TEST else "512", "--batch", "48",
+     *(["--limit", "6"] if LOCAL_TEST else []), "--out", REPO / "results/eval/base"], log="eval_base.txt")
+'''
+
+GSM8K_CELL = '''
+# 10. H10: GSM8K, first 100 test questions, greedy, 512 tokens (@WHO@)
+run([PY, "scripts/gsm8k_eval.py", "--model", MODEL, *@ADAPTER@, "--n", "4" if LOCAL_TEST else "100",
+     "--max-new", "16" if LOCAL_TEST else "512", "--batch", "48", "--dtype", "fp32" if LOCAL_TEST else "fp16",
+     "--out", REPO / "results/eval/gsm8k_@WHO@"], log="gsm8k_@WHO@.txt")
+'''
+
+
 def md(src: str):
     CELLS.append(("markdown", src.strip("\n")))
 
 
 def build_cells(b64: str, sha: str, rev: str):
-    md({"pilot1": MD_INTRO, "pilot2": MD_INTRO_PILOT2, "dryrun": MD_INTRO_DRYRUN}[STAGE])
+    if STAGE == "train_main":
+        md(MD_INTRO_TRAIN.format(title="main GRPO training run + its evaluation", hours="7 hours", steps=(
+            "6. **Training: 40 GRPO steps** (~4.2 h).\n7. **Held-out evaluation** of the trained adapter: 500 new "
+            "5-number puzzles, greedy.\n8. **KL** of the trained policy to the base model.\n9. **Merge** into the "
+            "base weights (bf16) + merge check (H27, H29) + held-out evaluation of the merged model.\n"
+            "10. **GSM8K** (100 school math problems): did other skills suffer?")))
+    elif STAGE == "train_control":
+        md(MD_INTRO_TRAIN.format(title="control run (shuffled rewards) + base model evaluation", hours="6.5 hours",
+                                 steps=(
+            "6. **Control training: 40 steps with shuffled rewards** (~4.2 h): same everything, but the reward a "
+            "sequence gets is another sequence's, so no real signal. Any gain here comes from the process, not "
+            "from learning the task.\n7. **Held-out evaluation** of the control adapter.\n8. **KL** of the control "
+            "policy to the base model.\n9. **Held-out evaluation of the base model** (the reference for all "
+            "comparisons).\n10. **GSM8K** for the base model.")))
+    else:
+        md({"pilot1": MD_INTRO, "pilot2": MD_INTRO_PILOT2, "dryrun": MD_INTRO_DRYRUN}[STAGE])
     code(f'''
 # 1. Unpack code + data (git {rev}, bundle sha256 {sha[:16]})
 import base64, hashlib, io, json, os, subprocess, sys, tarfile, time
@@ -318,6 +432,18 @@ if os.environ.get("SOUP_FORCE_FAIL") == "fp16":   # local test of the failure pa
     elif STAGE == "dryrun":
         for cell in DRYRUN_CELLS:
             guarded(cell)
+    elif STAGE in ("train_main", "train_control"):
+        name = STAGE.split("_")[1]
+        guarded(TRAIN_CELL.replace("@NAME@", name).replace(
+            "@EXTRA@", '"--shuffle-rewards"' if name == "control" else ""))
+        guarded(EVAL_HELDOUT_CELL.replace("@NAME@", name))
+        guarded(KL_CELL.replace("@NAME@", name))
+        if name == "main":
+            guarded(MERGE_CELL)
+            guarded(GSM8K_CELL.replace("@WHO@", "main").replace("@ADAPTER@", '["--adapter", ADAPTER]'))
+        else:
+            guarded(BASE_EVAL_CELL)
+            guarded(GSM8K_CELL.replace("@WHO@", "base").replace("@ADAPTER@", "[]"))
     else:
       guarded('''
 # 7. Pilot (H24) + prompt A/B (H31): base model, 100 puzzles x 4 answers, T=1.0, 256 new tokens, fp16
@@ -355,7 +481,8 @@ if not any(0.20 <= a <= 0.60 for a in acc.values()):
 (REPO / "results/pilot/choice.json").write_text(json.dumps({"prompt": PROMPT, "accuracy": acc}, indent=2))
 print(acc)
 ''')
-    guarded('''
+    if not STAGE.startswith("train"):
+      guarded('''
 # 8. Summary with the pre-registered selection rule + answers to read by hand
 run([PY, "scripts/pilot_summary.py", *sorted(map(str, (REPO / "results/pilot").glob("*.summary.json")))],
     log="pilot_summary.txt")
