@@ -48,3 +48,15 @@ Predictions are copied from `predictions/PREDICTIONS.md` (committed before the r
   `<think>\n\n</think>\n\n` to the prompt. Expected; outputs must contain no
   `<think>`.
 - Rendered prompt length ≈ 96 tokens (4 numbers).
+- Kaggle host (first session, 2026-11-25): 2× Tesla T4 (15,360 MiB each; torch sees
+  14,911 MiB), driver 580.178.04, CUDA 13.0, torch 2.11.0+cu130, transformers 5.20.2,
+  4 CPUs, 31 GB RAM, no swap, 20 GB disk. Only GPU 0 is used.
+- `torch.cuda.is_bf16_supported()` returns **True** on the T4 (capability 7.5), but
+  Turing has no bf16 tensor cores; bf16 there runs emulated/slow. The fp16 decision
+  (H30) does not rely on this flag.
+- PCIe link shows gen 1 at idle (max gen 3 ×16): the card lowers the link speed when
+  idle; `pcie_bench.py` measures the speed under load.
+- Ballast check passed on the first session: 6,614 MiB held, 8,190 MiB left for us.
+- First interactive run ended during the model download (cell 4 printed nothing, no
+  STOPPED line): the session ended, not a failed check. Rerun as a background
+  "Save & Run All" version.
