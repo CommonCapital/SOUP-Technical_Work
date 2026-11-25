@@ -37,7 +37,7 @@ def bundle() -> tuple[str, str]:
 def git_rev() -> str:
     try:
         rev = subprocess.run(["git", "rev-parse", "--short", "HEAD"], cwd=ROOT, capture_output=True, text=True).stdout.strip()
-        dirty = subprocess.run(["git", "status", "--porcelain", "--", ".", ":!kaggle/soup_pilot.ipynb"], cwd=ROOT, capture_output=True, text=True).stdout.strip()
+        dirty = subprocess.run(["git", "status", "--porcelain", "--", ".", ":!kaggle/*.ipynb"], cwd=ROOT, capture_output=True, text=True).stdout.strip()
         return rev + ("+dirty" if dirty else "")
     except Exception:
         return "unknown"
