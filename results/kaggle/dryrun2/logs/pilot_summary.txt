@@ -1,0 +1,17 @@
+level         acc          95% CI  mixed   0/4   4/4   tag  value  trunc  think   len   p95  NaN  verdict
+n5_extra/v2  25.5%  [21.5%, 30.0%]  56.0% 41.0%  3.0% 33.0%  25.8%  67.2%   0.0%   444   512    0  IN RANGE
+
+CHOSEN by the pre-registered rule: n5_extra/v2 (accuracy 25.5%, mixed 56.0%)
+  WARNING: truncation 67.2% >= 5%: raise --max-new before training
+  within 10 points of an edge: run 100 more prompts for this level (rule)
+
+===== n5_extra/v2: value right but rejected (1; check for checker false negatives)
+  [40, 11, 35, 48, 1] -> 38: '(40 - (48 - 35)) + (11 - 1) + 1'  [numbers used [1, 1, 11, 35, 40, 48] != given [1, 11, 35, 40, 48]]
+===== n5_extra/v2: tag present but not parsed (2; E11: check the checker reads the right block)
+  [23, 20, 61, 53, 18] -> 13: ''  [syntax error: invalid syntax]  tail ') + 18**\n\nNow, write only the final equation inside `<answer></answer>` tags:\n\n<'
+  [95, 3, 38, 79, 88] -> 37: '95 - (79 + 3)'  [right side of '=' is not an integer]  tail ' 88 - 38\n\nThus, the final equation is:\n\n<answer>95 - (79 + 3) = 88 - 38</answer>'
+===== n5_extra/v2: 4 random answers
+  [89, 92, 10, 67, 79] -> 19 | reward 1.0 | eos | "To solve this, we need to find an equation using the numbers **89, 92, 10, 67, 79** exactly once, with any combination of **+**, **-**, **×**, **÷**, and **parentheses**, that equals **19**.\n\nLet's try a few combinations:\n\n### Step 1: Try subtracting two large numbers\n- 92 - 89 = 3  \n- 79 - 67 = 12 "
+  [76, 11, 15, 82, 2] -> 85 | reward 0.0 | length | 'To solve this, we need to use the numbers **76, 11, 15, 82, 2** exactly once, with basic operations and parentheses to make an equation that equals **85**.\n\nLet’s try this step-by-step:\n\nWe can consider combinations like:\n\n- 82 + 2 = 84 (close)\n- 76 + 11 = 87\n- 15 + 2 = 17\n- 82 - 11 = 71\n- 76 - 15 ='
+  [31, 26, 64, 88, 57] -> 3 | reward 0.0 | length | 'To solve this, we need to use the numbers **31, 26, 64, 88, 57** exactly once each, with the allowed operations **+ – × ÷** and parentheses, to create an expression that evaluates to **3**.\n\nOne possible solution is:\n\n$$\n(88 - 64) - (57 - 31) + 26 = 3\n$$\n\nLet’s verify:\n\n- $88 - 64 = 24$  \n- $57 - 31'
+  [18, 35, 12, 54, 49] -> 36 | reward 0.0 | eos | 'To solve this, we need to use the numbers **18, 35, 12, 54, 49** exactly once with the operations **+**, **-**, **×**, and **÷**, and parentheses, to make an equation that equals **36**.\n\nLet’s try some combinations:\n\nOne possible solution is:\n\n$$\n(54 - 18) - (49 - 35) + 12 = 36\n$$\n\nBreaking it down'

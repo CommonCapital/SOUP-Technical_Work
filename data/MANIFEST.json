@@ -74,6 +74,11 @@
       "n": 100,
       "sha256": "0b90ef469164415173ef0d9f5852e8e1fd0deed7185f0e68eeae2b3c612e7d66",
       "derived_from": "train_n5.jsonl"
+    },
+    "gsm8k_test_100.jsonl": {
+      "n": 100,
+      "sha256": "7808548f5816f541611079827c55df5940ecaf81b0571f9a8a202241d6ee49a5",
+      "source": "openai/gsm8k main/test-00000-of-00001.parquet, first 100 rows (MIT license)"
     }
   }
 }

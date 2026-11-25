@@ -1,0 +1,19 @@
+{
+  "adapter_delta_norm": [
+    0.0,
+    0.0,
+    0.0
+  ],
+  "kl_mean": [
+    0.0,
+    null,
+    0.0
+  ],
+  "grad_norm": [
+    0.3150622844696045,
+    0.0,
+    0.19379876554012299
+  ],
+  "gradient_computed": true,
+  "PASS": true
+}

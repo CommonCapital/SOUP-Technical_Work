@@ -1,0 +1,1 @@
+{"stream": {"seed": 1234, "epoch": 0, "position": 30, "step": 5, "n_records": 1400}, "extra": {"ckpt": "step_00005", "shuffle_rng": {"bit_generator": "PCG64", "state": {"state": 106014665758722524232004246870664314255, "inc": 301210015978438316559513318483801574509}, "has_uint32": 0, "uinteger": 0}}}

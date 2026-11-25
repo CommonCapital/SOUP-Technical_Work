@@ -1,0 +1,9 @@
+
+Fetching 10 files:   0%|          | 0/10 [00:00<?, ?it/s]
+Fetching 10 files: 100%|██████████| 10/10 [00:00<00:00, 957.84it/s]
+LoRA trainable params: 33,030,144  (r=16, alpha=32.0, scale=2.0)
+boundary store: 0.87 GiB host memory (16 seqs x 158 tokens), host RSS 14.0 GB
+step   0 reward 0.188 value 0.188 tag 1.000 zero-adv 0.75 trained 4/16 len 17 trunc 0.00 gnorm 0.315 dnorm 0 lr 0 t 16.1s (gen 13.5 train 1.7)
+step   1 reward 0.000 value 0.062 tag 1.000 zero-adv 1.00 trained 0/16 len 24 trunc 0.12 gnorm 0 dnorm 0 lr 0 t 39.6s (gen 38.7 train 0.0)
+step   2 reward 0.188 value 0.188 tag 1.000 zero-adv 0.75 trained 4/16 len 17 trunc 0.00 gnorm 0.194 dnorm 0 lr 0 t 17.1s (gen 13.0 train 1.6)
+done

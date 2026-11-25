@@ -200,3 +200,43 @@ per-second host log in dry run 2. Nothing else in the training configuration
 changes. Dry run 2 repeats the 5 steps, the 4B resume test (now on easy puzzles
 so updates really happen) and the lr = 0 check, then the 100 extra n5 pilot
 prompts.
+
+## Evaluation protocol and the SHIP rule, added 2026-11-26 (after the dry runs, before any real training run)
+
+**Models:** base Qwen3-4B; base + main adapter (40 steps); base + control
+adapter (40 steps, shuffled rewards, same seed and data order); main adapter
+merged into the base weights and stored in bf16 (the shippable artifact).
+
+**Countdown evaluation:** `data/heldout_n5.jsonl`, all 500 puzzles, prompt v2,
+greedy (T = 0), one answer each, 512 new tokens, fp16 + fp32 residual, the E11
+checker. Paired by puzzle; `scripts/compare.py` (10,000-resample bootstrap CI
+of the difference, exact McNemar). Also per model: truncation share and
+accuracy among answers that finished.
+
+**Other skills (H10):** first 100 GSM8K test questions (`data/gsm8k_test_100.jsonl`),
+greedy, 512 tokens; correct = the number in the last `<answer>` tag if there is
+one, else the last number in the text. Base vs main adapter, paired.
+
+**How far the policy moved (H28):** exact per-position KL(adapter ‖ base) on the
+first 200 held-out answers of each adapter (`scripts/kl_eval.py`); main must be
+above control. KL during training is logged every 5 steps.
+
+**Merge (H27, H29):** `merge.py --out-dtype bf16`, then `merge_check.py` (50
+held-out prompts); also the merged model's own 500-puzzle evaluation.
+
+**SHIP only if all of these hold; otherwise DON'T SHIP:**
+1. **H8 gain:** main − base on the 500 puzzles, 95% CI lower bound > 0.
+2. **H26 control:** the gain is not explained by the training process alone:
+   main − control, 95% CI lower bound > 0. (If control − base is itself
+   significant, that is reported as a finding about format/length effects.)
+3. **H9 skill, not format:** (a) main's accuracy among finished answers is not
+   lower than base's by more than 3 points, and (b) the value-correct rate
+   rises with the reward, and (c) an independent re-implementation of the
+   checker agrees with the main checker on ≥ 99% of main's answers.
+4. **H10 no damage:** GSM8K main − base, the 95% CI upper bound is not below 0
+   (no significant drop).
+5. **Validity:** 8 GB cap held in every phase, 0 non-finite values, the run
+   completed all 40 steps (resumes allowed only if exact by H19).
+
+**What ships:** the merged bf16 model if H27 passes for it; otherwise the
+adapter (and the report says the bf16 merge lost the change, H29).

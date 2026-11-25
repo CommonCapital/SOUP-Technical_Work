@@ -50,8 +50,18 @@ def paired(a_rows, b_rows, key="reward", n_boot=10_000, seed=0):
 def main():
     a, b = load(sys.argv[1]), load(sys.argv[2])
     res = {"A": sys.argv[1], "B": sys.argv[2], "reward": paired(a, b)}
-    for k in ("tag_present", "parsed", "numbers_correct", "value_correct"):
-        res[k] = paired(a, b, k)
+    for rows in (a, b):                       # "finished" = stopped by itself (not cut off at the cap)
+        for r in rows.values():
+            if "finish" in r:
+                r["finished"] = r["finish"] == "eos"
+    keys = ("finished", "tag_present", "parsed", "numbers_correct", "value_correct", "tag_correct", "last_correct")
+    for k in keys:                            # only the sub-checks both files have (GSM8K rows differ)
+        if all(k in r for r in a.values()) and all(k in r for r in b.values()):
+            res[k] = paired(a, b, k)
+    # H9 / pilot-2 rule 3: accuracy among answers that finished, per model (not paired: different subsets)
+    for name, rows in (("A", a), ("B", b)):
+        fin = [r for r in rows.values() if r.get("finished")]
+        res[f"acc_finished_{name}"] = (float(np.mean([r["reward"] for r in fin])) if fin else None, len(fin))
     print(json.dumps(res, indent=1))
     if len(sys.argv) > 3:
         Path(sys.argv[3]).write_text(json.dumps(res, indent=2) + "\n")

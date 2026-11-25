@@ -1,0 +1,24 @@
+
+Fetching 10 files:   0%|          | 0/10 [00:00<?, ?it/s]
+Fetching 10 files: 100%|██████████| 10/10 [00:00<00:00, 1016.01it/s]
+{
+ "accuracy": 0.255,
+ "wilson95": [
+  0.21475600851610616,
+  0.2999051853777373
+ ],
+ "mixed_prompt_share": 0.56,
+ "per_prompt_hist": {
+  "0": 41,
+  "1": 33,
+  "2": 12,
+  "3": 11,
+  "4": 3
+ },
+ "tag_rate": 0.33,
+ "value_rate": 0.2575,
+ "truncated_share": 0.6725,
+ "thinking_share": 0.0,
+ "len_mean": 443.7475,
+ "seconds": 2841.9951641360003
+}

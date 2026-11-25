@@ -1,0 +1,46 @@
+{
+  "model": "Qwen/Qwen3-4B",
+  "dtype": "fp16",
+  "steps": 3,
+  "kill_step": 1,
+  "trainer_dead_after_kill": true,
+  "killed_mid_run": true,
+  "resumed_line": [
+    "resumed at step 1 from /kaggle/working/soup-grpo/runs/resume_check/b/ckpt/step_00001\n"
+  ],
+  "ids_identical": true,
+  "metrics_steps_b": [
+    0,
+    1,
+    2
+  ],
+  "rewards": [
+    [
+      0.25,
+      0.0,
+      0.0
+    ],
+    [
+      0.25,
+      0.0,
+      0.0
+    ]
+  ],
+  "adapter_norms": [
+    [
+      0.23993027726742702,
+      0.23993027726742702,
+      0.23993027726742702
+    ],
+    [
+      0.23993027726742702,
+      0.23993027726742702,
+      0.23993027726742702
+    ]
+  ],
+  "samples_identical": true,
+  "seconds_run_a": 108.18611097335815,
+  "updates_happened": true,
+  "PASS_resume": true,
+  "PASS_exact": true
+}

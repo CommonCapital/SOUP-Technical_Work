@@ -69,6 +69,7 @@ def score_completions(tok, puzzles, outs, stops) -> list[dict]:
         rows.append({
             "id": p["id"], "numbers": p["numbers"], "target": p["target"], "completion": text,
             "n_tokens": len(o.tokens), "finish": o.finish, "thinking": completion_has_thinking(text),
+            "tokens": list(o.tokens),   # exact generated ids (KL on held-out answers, H28)
             **r.as_dict(),
         })
     return rows
