@@ -1,0 +1,28 @@
+level         acc          95% CI  mixed   0/4   4/4   tag  value  trunc  think   len   p95  NaN  verdict
+n4/v2       56.2%  [51.4%, 61.0%]  44.0% 27.0% 29.0% 61.5%  56.2%  38.8%   0.0%   352   512    0  IN RANGE
+n5/v2       21.5%  [17.8%, 25.8%]  47.0% 48.0%  5.0% 29.0%  22.5%  70.8%   0.0%   450   512    0  IN RANGE
+
+CHOSEN by the pre-registered rule: n5/v2 (accuracy 21.5%, mixed 47.0%)
+  WARNING: truncation 70.8% >= 5%: raise --max-new before training
+  within 10 points of an edge: run 100 more prompts for this level (rule)
+
+===== n4/v2: value right but rejected (0; check for checker false negatives)
+===== n4/v2: tag present but not parsed (1; E11: check the checker reads the right block)
+  [69, 21, 33, 98] -> 83: ''  [syntax error: invalid syntax]  tail ' 83\n$$\n\nNow write the final equation **inside the `<answer></answer>` tags**:\n\n<'
+===== n4/v2: 4 random answers
+  [75, 33, 81, 35] -> 88 | reward 1.0 | eos | "To solve this, we need to find an equation using the numbers **75, 33, 81, 35** exactly once, with operations +, -, ×, ÷, and parentheses, that equals **88**.\n\nLet's try different combinations:\n\nTry:\n$$\n(81 - 35) + (75 - 33)\n$$\n$$\n46 + 42 = 88\n$$\n\nThis works perfectly.\n\nSo the final equation is:\n\n<a"
+  [86, 36, 36, 51] -> 35 | reward 0.0 | length | "To solve this, we need to use the numbers **86, 36, 36, 51** exactly once, with basic operations (+, −, ×, ÷) and parentheses, to get a result of **35**.\n\nLet's try a few combinations:\n\nTry:  \n**(86 - 51) - (36 ÷ 36)**  \nThis equals:  \n35 - 1 = **34** → Not quite.\n\nTry:  \n**(86 - 51) - (36 ÷ 36)** a"
+  [26, 76, 33, 3] -> 97 | reward 0.0 | length | "To solve this, we need to use the numbers **26, 76, 33, 3** exactly once and combine them using **+, -, ×, ÷**, and **parentheses** to make **97**.\n\nLet's try a few combinations:\n\nTry:\n$$\n(76 - 26) + (33 - 3) = 50 + 30 = 80 \\quad \\text{Too low}\n$$\n\nTry:\n$$\n76 + (33 - 26) - 3 = 76 + 7 - 3 = 80 \\quad "
+  [32, 36, 92, 85] -> 61 | reward 1.0 | eos | 'To solve this, we need to combine the numbers **32, 36, 92, 85** using each exactly once and any of the operations **+, -, ×, ÷** and parentheses to make an expression that equals **61**.\n\nLet’s try a few combinations:\n\nTry:  \n**(92 - 36) = 56**  \nThen: 56 + 32 = 88  \n88 - 85 = 3 → Not helpful.\n\nTry'
+
+===== n5/v2: value right but rejected (4; check for checker false negatives)
+  [31, 28, 56, 33, 80] -> 12: '(80 - 56) / (33 - 31)'  [numbers used [31, 33, 56, 80] != given [28, 31, 33, 56, 80]]
+  [43, 10, 53, 2, 84] -> 61: '(53 - 43) + (10 * 2) + (84 - 53)'  [numbers used [2, 10, 43, 53, 53, 84] != given [2, 10, 43, 53, 84]]
+  [14, 69, 70, 5, 11] -> 9: '(70 - 69) * (11 - 5) + (14 - 11)'  [numbers used [5, 11, 11, 14, 69, 70] != given [5, 11, 14, 69, 70]]
+  [75, 42, 2, 98, 92] -> 71: '75 - (98 - 92) + 2'  [numbers used [2, 75, 92, 98] != given [2, 42, 75, 92, 98]]
+===== n5/v2: tag present but not parsed (0; E11: check the checker reads the right block)
+===== n5/v2: 4 random answers
+  [4, 12, 90, 29, 10] -> 8 | reward 0.0 | length | 'To solve this, we need to use the numbers **4, 12, 90, 29, 10** exactly once, with the operations **+, −, ×, ÷**, and parentheses, to form an equation that equals **8**.\n\nLet’s try a combination:\n\nStart with:  \n**(90 ÷ 10) = 9**  \nThen:  \n**9 − (12 ÷ 4) = 9 − 3 = 6**  \nNow we have used 90, 10, 12, a'
+  [19, 65, 94, 21, 9] -> 20 | reward 0.0 | length | 'To solve this, we need to find a way to combine the numbers 19, 65, 94, 21, and 9 using each exactly once with the operations +, −, ×, ÷, and parentheses to get 20.\n\nLet’s try a few combinations:\n\nTry:  \n(94 - 65) = 29  \nThen 29 - 21 = 8  \n8 + 19 = 27  \nToo high.\n\nTry:  \n(94 - 65 - 21) = 8  \nThen 8 '
+  [49, 36, 56, 92, 62] -> 39 | reward 0.0 | length | 'To solve the problem, we need to use the numbers **49, 36, 56, 92, 62** exactly once, with the allowed operations **+, −, ×, ÷**, and parentheses, to create an expression that evaluates to **39**.\n\nLet’s try a combination:\n\nStart with **92 − 62 = 30**, then we need 9 more.\n\nTry **56 − 36 = 20**, the'
+  [5, 50, 37, 21, 2] -> 1 | reward 0.0 | length | 'To solve this, we need to use the numbers **5, 50, 37, 21, 2** exactly once each, with the operations **+, -, ×, ÷** and parentheses, to create an expression that equals **1**.\n\nLet’s try a combination:\n\nWe can try:\n\n$$\n(50 - 37) = 13 \\\\\n(21 - 2) = 19 \\\\\n13 - 19 = -6 \\quad \\text{Not helpful}\n$$\n\nTry'

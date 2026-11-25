@@ -1,0 +1,52 @@
+{
+  "model": "Qwen/Qwen3-4B",
+  "adapter": null,
+  "data": "data/pilot_n5.jsonl",
+  "n_prompts": 100,
+  "samples": 4,
+  "temperature": 1.0,
+  "max_new": 512,
+  "accuracy": 0.215,
+  "wilson95": [
+    0.17755084865785345,
+    0.25787135648396453
+  ],
+  "mixed_prompt_share": 0.47,
+  "all_wrong_share": 0.48,
+  "all_right_share": 0.05,
+  "per_prompt_hist": {
+    "0": 48,
+    "1": 31,
+    "2": 13,
+    "3": 3,
+    "4": 5
+  },
+  "tag_rate": 0.29,
+  "parsed_rate": 0.29,
+  "numbers_rate": 0.27,
+  "value_rate": 0.225,
+  "truncated_share": 0.7075,
+  "thinking_share": 0.0,
+  "len_mean": 450.1775,
+  "len_p95": 512.0,
+  "seconds": 2831.1801028299997,
+  "engine_timers_s": {
+    "load": 17.758532524108887,
+    "prefill": 24.81401668999979,
+    "decode": 2806.3069025779996
+  },
+  "copies": 165888,
+  "dtype": "fp16",
+  "prompt": "v2",
+  "nonfinite_events": 0,
+  "oom_splits": 0,
+  "batch": 48,
+  "gpu": {
+    "alloc_gb": 1.2964215278625488,
+    "reserved_gb": 7.138671875,
+    "peak_alloc_gb": 7.049715042114258,
+    "peak_reserved_gb": 7.138671875
+  },
+  "smi_mib": 14211,
+  "time": "2026-11-25T14:52:04"
+}
