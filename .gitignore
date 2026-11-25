@@ -11,3 +11,4 @@ runs/
 hf_cache/
 kaggle/push/
 kaggle/out/
+.DS_Store
