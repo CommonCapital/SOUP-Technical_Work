@@ -20,7 +20,7 @@ import tarfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-STAGE = __import__("os").environ.get("SOUP_STAGE", "pilot1")   # pilot1 | pilot2
+STAGE = __import__("os").environ.get("SOUP_STAGE", "pilot1")   # pilot1 | pilot2 | dryrun
 INCLUDE = ["src", "scripts", "tests", "data", "predictions", "pyproject.toml", "README.md", "GPU_RUNBOOK.md"]
 
 
@@ -74,6 +74,20 @@ Why: in the first pilot, 65% of the 4-number answers were cut off at 256 tokens,
 with the checker fixed in E11. Steps 1-5 are the same safety checks as before (8 GB cap, CUDA equivalence).
 """
 
+MD_INTRO_DRYRUN = """# Soup GRPO task: step 2, training dry run on Qwen3-4B (Kaggle T4)
+
+**Before running:** Settings, then **Accelerator: GPU T4 x2** and **Internet: On**. Then **Save Version ->
+Save & Run All (Commit)** and close the tab. Takes about **1 h 45 min**. When the version shows Complete, open
+its **Output** tab and download **`soup_results.zip`**.
+
+Everything here is pre-registered in `predictions/PREDICTIONS.md` ("Pilot 2 outcome and the training setup"):
+1-5. Same safety checks as before (8 GB cap, tests, CUDA equivalence, PCIe).
+6. **Memory budget** at the real training size: generate 48 answers x 512 tokens, one training pass, one Adam step.
+7. **Resume test on the 4B** (kill -9 mid-step, resume) and an **lr = 0** check.
+8. **Dry run: 5 real GRPO steps** with the final configuration (time per step, zero-advantage share, memory).
+9. **100 extra pilot puzzles** for the chosen level (5 numbers), as the selection rule requires.
+"""
+
 CELLS: list[tuple[str, str]] = []
 
 
@@ -116,12 +130,65 @@ for level in ["n4", "n5"]:
 '''
 
 
+DRYRUN_CELLS = ['''
+# 6. Memory budget at the real training size (H11b, H12, H13): 48 answers x 512 tokens, train pass, Adam step
+if not LOCAL_TEST:
+    run([PY, "scripts/gpu/budget_check.py", "--batch", "48", "--max-new", "512", "--micro-batch", "8",
+         "--dtype", "fp16", "--data", "data/train_n5_main.jsonl", "--prompt", "v2"], log="budget.txt")
+    B = json.loads(sorted((REPO / "results/logs").glob("budget_*.json"))[-1].read_text())
+    print("our peak MiB:", B["our_peak_mib"], "| under cap:", B["under_cap"],
+          "| decode pass s:", round(B["decode_pass_s"], 3))
+    assert B["under_cap"], "training-size budget does not fit under the cap: do not start the dry run"
+''', '''
+# 7. H19 resume test on the 4B (kill -9 mid-step) + lr = 0 check
+DT = "fp32" if LOCAL_TEST else "fp16"
+run([PY, "scripts/gpu/resume_check.py", "--model", MODEL, "--dtype", DT, "--data", "data/train_n5_main.jsonl"],
+    log="resume_check.txt")
+R = json.loads(sorted((REPO / "results/logs").glob("resume_check_*.json"))[-1].read_text())
+print("H19 PASS_resume:", R["PASS_resume"], "| PASS_exact:", R["PASS_exact"])
+run([PY, "scripts/train_grpo.py", "--model", MODEL, "--dtype", DT, "--data", "data/train_n5_main.jsonl",
+     "--steps", "2", "--prompts-per-step", "2", "--group", "4", "--max-new", "64", "--gen-batch", "8",
+     "--train-seqs-per-pass", "8", "--micro-batch", "4", "--lr", "0", "--log-kl-every", "1",
+     "--run-dir", REPO / "runs/lr0"], log="lr0.txt")
+M0 = [json.loads(l) for l in open(REPO / "runs/lr0/metrics.jsonl")]
+lr0 = {"adapter_delta_norm": [m["adapter_delta_norm"] for m in M0], "kl_mean": [m["kl_mean"] for m in M0]}
+lr0["PASS"] = all(v == 0 for v in lr0["adapter_delta_norm"]) and all(not k for k in lr0["kl_mean"])
+(REPO / "results/logs/lr0_check.json").write_text(json.dumps(lr0, indent=2))
+print("lr=0 check:", lr0)
+''', '''
+# 8. Dry run: 5 GRPO steps with the final configuration (H1, H25, H33, H11b)
+if LOCAL_TEST:
+    cfg = ["--steps", "2", "--prompts-per-step", "2", "--group", "4", "--max-new", "32", "--gen-batch", "8",
+           "--train-seqs-per-pass", "8", "--micro-batch", "4", "--dtype", "fp32"]
+else:
+    cfg = ["--steps", "5", "--prompts-per-step", "6", "--group", "8", "--max-new", "512", "--gen-batch", "48",
+           "--train-seqs-per-pass", "48", "--micro-batch", "8", "--dtype", "fp16"]
+run([PY, "scripts/train_grpo.py", "--model", MODEL, "--data", "data/train_n5_main.jsonl", "--prompt", "v2",
+     "--lr", "2e-5", "--warmup", "2", "--log-kl-every", "2", "--seed", "1234", *cfg,
+     "--run-dir", REPO / "runs/dryrun"], log="dryrun.txt")
+M = [json.loads(l) for l in open(REPO / "runs/dryrun/metrics.jsonl")]
+for m in M:
+    t = m["time_s"]
+    print(f"step {m['step']}: {t['total']:.0f}s (generate {t['generate'] / t['total']:.0%}) reward {m['reward']:.2f} "
+          f"acc|finished {m['acc_finished']} trunc {m['truncated_share']:.0%} zero-adv {m['zero_adv_group_share']:.0%} "
+          f"adapter {m['adapter_delta_norm']:.2e} kl {m['kl_mean']} smi {m['smi_mib_after_gen']}/{m['smi_mib_after_train']}")
+import shutil
+shutil.copytree(REPO / "runs/dryrun", REPO / "results/dryrun", ignore=shutil.ignore_patterns("ckpt"), dirs_exist_ok=True)
+''', '''
+# 9. Pilot rule 4: 100 extra n5 puzzles (taken out of the training data), prompt v2, 512 tokens
+run([PY, "scripts/sample_eval.py", "--model", MODEL, "--device", DEVICE, "--dtype", "fp32" if LOCAL_TEST else "fp16",
+     "--prompt", "v2", "--data", "data/pilot_n5_extra.jsonl", "--samples", "4", "--temperature", "1.0",
+     "--max-new", "48" if LOCAL_TEST else "512", "--batch", "48", "--out", REPO / "results/pilot/n5_v2_512_extra",
+     *(["--limit", "4"] if LOCAL_TEST else [])], log="pilot_n5_extra.txt")
+''']
+
+
 def md(src: str):
     CELLS.append(("markdown", src.strip("\n")))
 
 
 def build_cells(b64: str, sha: str, rev: str):
-    md(MD_INTRO if STAGE == "pilot1" else MD_INTRO_PILOT2)
+    md({"pilot1": MD_INTRO, "pilot2": MD_INTRO_PILOT2, "dryrun": MD_INTRO_DRYRUN}[STAGE])
     code(f'''
 # 1. Unpack code + data (git {rev}, bundle sha256 {sha[:16]})
 import base64, hashlib, io, json, os, subprocess, sys, tarfile, time
@@ -238,6 +305,9 @@ if os.environ.get("SOUP_FORCE_FAIL") == "fp16":   # local test of the failure pa
 ''')
     if STAGE == "pilot2":
         guarded(PILOT2_CELL)
+    elif STAGE == "dryrun":
+        for cell in DRYRUN_CELLS:
+            guarded(cell)
     else:
       guarded('''
 # 7. Pilot (H24) + prompt A/B (H31): base model, 100 puzzles x 4 answers, T=1.0, 256 new tokens, fp16
