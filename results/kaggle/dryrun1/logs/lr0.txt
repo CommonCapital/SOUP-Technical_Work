@@ -1,0 +1,7 @@
+
+Fetching 10 files:   0%|          | 0/10 [00:00<?, ?it/s]
+Fetching 10 files: 100%|██████████| 10/10 [00:00<00:00, 1207.13it/s]
+LoRA trainable params: 33,030,144  (r=16, alpha=32.0, scale=2.0)
+step   0 reward 0.000 value 0.000 tag 0.000 zero-adv 1.00 trained 0/8 len 64 trunc 1.00 gnorm 0 dnorm 0 lr 0 t 39.6s (gen 39.1 train 0.0)
+step   1 reward 0.000 value 0.000 tag 0.000 zero-adv 1.00 trained 0/8 len 64 trunc 1.00 gnorm 0 dnorm 0 lr 0 t 39.1s (gen 38.7 train 0.0)
+done

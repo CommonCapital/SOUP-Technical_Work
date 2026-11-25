@@ -187,3 +187,16 @@ free GPU. With 48 rollouts: one batch, ~5.2 min decoding per step.
 | H25 | Zero-advantage groups < 50% per step | dry run, logged per step (with G = 8, P(group all-same) is lower than the pilot's 4-sample share) | raise temperature or filter prompts |
 | H19 | Resume after kill -9 is exact on the 4B | `resume_check.py`: IDs identical and no gaps (PASS_resume); completions identical is reported (PASS_exact) | fix before the main run; the main run must survive a Kaggle session restart |
 | — | lr = 0 leaves the adapter at zero and KL at 0 | 2 steps, lr 0 | the optimiser or adapter wiring is wrong |
+
+## Amendment after dry run 1 (2026-11-25, before dry run 2 and before any real training)
+
+Dry run 1 (E14) ran the 31 GB host out of RAM in the training pass. Change:
+**24 sequences per training pass** (`--train-seqs-per-pass 24`, two passes per
+step) instead of 48. The update is mathematically the same (gradients
+accumulate over both passes before one optimizer step; the loss normaliser is
+the constant N_seq × max_new). Expected cost: +~2–5 s per step (one more weight
+stream). New prediction: **host RAM peak ≤ 22 GB** (H14b); measured from the
+per-second host log in dry run 2. Nothing else in the training configuration
+changes. Dry run 2 repeats the 5 steps, the 4B resume test (now on easy puzzles
+so updates really happen) and the lr = 0 check, then the 100 extra n5 pilot
+prompts.

@@ -32,7 +32,10 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--model", default="Qwen/Qwen3-4B")
     ap.add_argument("--dtype", default="fp16")
-    ap.add_argument("--data", default="data/train_n5_main.jsonl")
+    # easy puzzles + the short-answer prompt, so rewards vary and real updates happen (E14: on n5 with
+    # 64 tokens every reward was 0, nothing was updated and the check proved only the data stream)
+    ap.add_argument("--data", default="data/train_n3_addsub.jsonl")
+    ap.add_argument("--prompt", default="v1")
     ap.add_argument("--steps", type=int, default=3)
     ap.add_argument("--kill-step", type=int, default=1)
     ap.add_argument("--out", default=str(ROOT / "runs" / "resume_check"))
@@ -45,7 +48,7 @@ def main():
     args = [sys.executable, "scripts/train_grpo.py", "--model", a.model, "--dtype", a.dtype, "--data", a.data,
             "--steps", str(a.steps), "--prompts-per-step", "2", "--group", "4", "--max-new", "64",
             "--gen-batch", "8", "--train-seqs-per-pass", "8", "--micro-batch", "4", "--lr", "1e-4",
-            "--log-kl-every", "2"]
+            "--log-kl-every", "2", "--prompt", a.prompt]
     t0 = time.time()
     with open(out / "a.log", "w") as f:
         subprocess.run(args + ["--run-dir", str(out / "a")], stdout=f, stderr=subprocess.STDOUT, cwd=ROOT, check=True)
@@ -90,7 +93,8 @@ def main():
         "samples_identical": [s["completion"] for s in sa] == [s["completion"] for s in sb],
         "seconds_run_a": t_a,
     }
-    res["PASS_resume"] = (res["killed_mid_run"] and res["ids_identical"] and res["metrics_steps_b"] == list(range(a.steps))
+    res["updates_happened"] = any(n > 0 for n in res["adapter_norms"][0])   # else optimizer restore is untested
+    res["PASS_resume"] = (res["killed_mid_run"] and res["updates_happened"] and res["ids_identical"] and res["metrics_steps_b"] == list(range(a.steps))
                           and res["trainer_dead_after_kill"])
     res["PASS_exact"] = (res["PASS_resume"] and res["samples_identical"]
                          and res["rewards"][0] == res["rewards"][1] and res["adapter_norms"][0] == res["adapter_norms"][1])

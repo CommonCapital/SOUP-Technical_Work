@@ -129,19 +129,42 @@ class LayerStreamer:
 
 class BoundaryStore:
     """CPU (pinned on CUDA hosts) storage for per-layer inputs, reused across
-    passes so pinning cost is paid once."""
+    passes so pinning cost is paid once.
+
+    Host RAM matters here: for 48 sequences x 650 tokens x 2560 x fp32 x 36
+    layers this is ~11.5 GB. The first Kaggle dry run (E14) ran the 31 GB host
+    out of memory because growing the buffer briefly held three copies: the
+    old pinned block (kept by PyTorch's pinned-memory cache), a pageable
+    temporary, and its pinned copy. Now: free + release the pinned cache first,
+    allocate pinned memory directly, and let the trainer reserve() the largest
+    size once, so the buffer never grows during a run."""
 
     def __init__(self, pin: bool):
         self.pin = pin
         self.buf: torch.Tensor | None = None
+        self.allocations = 0
+
+    def _alloc(self, numel: int, dtype) -> None:
+        self.buf = None
+        release = getattr(torch._C, "_accelerator_emptyHostCache", None) or getattr(torch._C, "_host_emptyCache", None)
+        if self.pin and release is not None:
+            release()
+        self.buf = torch.empty(numel, dtype=dtype, pin_memory=self.pin)
+        self.allocations += 1
+
+    def reserve(self, n_layers: int, n_elems: int, dtype) -> None:
+        """Allocate for the largest pass up front (trainer start-up)."""
+        if self.buf is None or self.buf.numel() < n_layers * n_elems or self.buf.dtype != dtype:
+            self._alloc(n_layers * n_elems, dtype)
 
     def ensure(self, n_layers: int, n_elems: int, dtype) -> None:
         need = n_layers * n_elems
         if self.buf is None or self.buf.numel() < need or self.buf.dtype != dtype:
-            self.buf = None
-            t = torch.empty(need, dtype=dtype)
-            self.buf = t.pin_memory() if self.pin else t
+            self._alloc(need, dtype)
         self.n_elems = n_elems
+
+    def nbytes(self) -> int:
+        return 0 if self.buf is None else self.buf.numel() * self.buf.element_size()
 
     def slot(self, layer: int, offset: int, shape) -> torch.Tensor:
         n = 1

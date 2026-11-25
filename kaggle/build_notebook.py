@@ -74,7 +74,7 @@ Why: in the first pilot, 65% of the 4-number answers were cut off at 256 tokens,
 with the checker fixed in E11. Steps 1-5 are the same safety checks as before (8 GB cap, CUDA equivalence).
 """
 
-MD_INTRO_DRYRUN = """# Soup GRPO task: step 2, training dry run on Qwen3-4B (Kaggle T4)
+MD_INTRO_DRYRUN = """# Soup GRPO task: step 2, training dry run 2 on Qwen3-4B (Kaggle T4)
 
 **Before running:** Settings, then **Accelerator: GPU T4 x2** and **Internet: On**. Then **Save Version ->
 Save & Run All (Commit)** and close the tab. Takes about **1 h 45 min**. When the version shows Complete, open
@@ -82,8 +82,8 @@ its **Output** tab and download **`soup_results.zip`**.
 
 Everything here is pre-registered in `predictions/PREDICTIONS.md` ("Pilot 2 outcome and the training setup"):
 1-5. Same safety checks as before (8 GB cap, tests, CUDA equivalence, PCIe).
-6. **Memory budget** at the real training size: generate 48 answers x 512 tokens, one training pass, one Adam step.
-7. **Resume test on the 4B** (kill -9 mid-step, resume) and an **lr = 0** check.
+6. (Memory budget at training size: done in dry run 1, E14, 8,146 MiB, under the cap; skipped here.)
+7. **Resume test on the 4B** (kill -9 mid-step, resume) and an **lr = 0** check, on easy puzzles so real updates happen.
 8. **Dry run: 5 real GRPO steps** with the final configuration (time per step, zero-advantage share, memory).
 9. **100 extra pilot puzzles** for the chosen level (5 numbers), as the selection rule requires.
 """
@@ -130,7 +130,7 @@ for level in ["n4", "n5"]:
 '''
 
 
-DRYRUN_CELLS = ['''
+DRYRUN_CELLS_ALL = ['''
 # 6. Memory budget at the real training size (H11b, H12, H13): 48 answers x 512 tokens, train pass, Adam step
 if not LOCAL_TEST:
     rc = run([PY, "scripts/gpu/budget_check.py", "--batch", "48", "--max-new", "512", "--micro-batch", "8",
@@ -147,17 +147,20 @@ if not LOCAL_TEST:
 ''', '''
 # 7. H19 resume test on the 4B (kill -9 mid-step) + lr = 0 check
 DT = "fp32" if LOCAL_TEST else "fp16"
-run([PY, "scripts/gpu/resume_check.py", "--model", MODEL, "--dtype", DT, "--data", "data/train_n5_main.jsonl"],
-    log="resume_check.txt")
+run([PY, "scripts/gpu/resume_check.py", "--model", MODEL, "--dtype", DT], log="resume_check.txt")
 R = json.loads(sorted((REPO / "results/logs").glob("resume_check_*.json"))[-1].read_text())
 print("H19 PASS_resume:", R["PASS_resume"], "| PASS_exact:", R["PASS_exact"])
-run([PY, "scripts/train_grpo.py", "--model", MODEL, "--dtype", DT, "--data", "data/train_n5_main.jsonl",
-     "--steps", "2", "--prompts-per-step", "2", "--group", "4", "--max-new", "64", "--gen-batch", "8",
-     "--train-seqs-per-pass", "8", "--micro-batch", "4", "--lr", "0", "--log-kl-every", "1",
+run([PY, "scripts/train_grpo.py", "--model", MODEL, "--dtype", DT, "--data", "data/train_n3_addsub.jsonl",
+     "--prompt", "v1", "--steps", "3", "--prompts-per-step", "4", "--group", "4", "--max-new", "64",
+     "--gen-batch", "16", "--train-seqs-per-pass", "16", "--micro-batch", "4", "--lr", "0", "--log-kl-every", "1",
      "--run-dir", REPO / "runs/lr0"], log="lr0.txt")
 M0 = [json.loads(l) for l in open(REPO / "runs/lr0/metrics.jsonl")]
-lr0 = {"adapter_delta_norm": [m["adapter_delta_norm"] for m in M0], "kl_mean": [m["kl_mean"] for m in M0]}
-lr0["PASS"] = all(v == 0 for v in lr0["adapter_delta_norm"]) and all(not k for k in lr0["kl_mean"])
+lr0 = {"adapter_delta_norm": [m["adapter_delta_norm"] for m in M0], "kl_mean": [m["kl_mean"] for m in M0],
+       "grad_norm": [m["grad_norm"] for m in M0]}
+# meaningful only if a gradient was actually computed (E14: all rewards 0 -> no pass -> trivially "PASS")
+lr0["gradient_computed"] = any((g or 0) > 0 for g in lr0["grad_norm"])
+lr0["PASS"] = (lr0["gradient_computed"] and all(v == 0 for v in lr0["adapter_delta_norm"])
+               and all(abs(k) < 1e-6 for k in lr0["kl_mean"] if k is not None))
 (REPO / "results/logs/lr0_check.json").write_text(json.dumps(lr0, indent=2))
 print("lr=0 check:", lr0)
 ''', '''
@@ -167,7 +170,7 @@ if LOCAL_TEST:
            "--train-seqs-per-pass", "8", "--micro-batch", "4", "--dtype", "fp32"]
 else:
     cfg = ["--steps", "5", "--prompts-per-step", "6", "--group", "8", "--max-new", "512", "--gen-batch", "48",
-           "--train-seqs-per-pass", "48", "--micro-batch", "8", "--dtype", "fp16"]
+           "--train-seqs-per-pass", "24", "--micro-batch", "8", "--dtype", "fp16"]
 run([PY, "scripts/train_grpo.py", "--model", MODEL, "--data", "data/train_n5_main.jsonl", "--prompt", "v2",
      "--lr", "2e-5", "--warmup", "2", "--log-kl-every", "2", "--seed", "1234", *cfg,
      "--run-dir", REPO / "runs/dryrun"], log="dryrun.txt")
@@ -186,6 +189,8 @@ run([PY, "scripts/sample_eval.py", "--model", MODEL, "--device", DEVICE, "--dtyp
      "--max-new", "48" if LOCAL_TEST else "512", "--batch", "48", "--out", REPO / "results/pilot/n5_v2_512_extra",
      *(["--limit", "4"] if LOCAL_TEST else [])], log="pilot_n5_extra.txt")
 ''']
+# Dry run 2: the budget cell already ran in dry run 1 (E14: 8,146 MiB, under the cap), so it is skipped.
+DRYRUN_CELLS = DRYRUN_CELLS_ALL[1:]
 
 
 def md(src: str):

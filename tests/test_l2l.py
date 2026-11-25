@@ -55,3 +55,26 @@ def test_fp16_mode_at_least_as_accurate_as_bf16():
     assert r["residual_dtype"] == "torch.float32"
     assert r["nonfinite_events"] == 0
     assert r["PASS"], r
+
+
+def test_boundary_store_reserved_once(tmp_path):
+    """E14: the per-layer input buffer must be reserved once and never grow
+    during training (growing it ran the Kaggle host out of RAM)."""
+    import torch
+    from soupgrpo.grpo import make_loss_fn
+    from soupgrpo.l2l import L2LEngine
+    from soupgrpo.lora import LoRA
+    from soupgrpo.tiny import make_tiny_qwen3
+    from soupgrpo.weights import WeightStore
+    st = WeightStore(make_tiny_qwen3(tmp_path / "m", n_layers=2), dtype=torch.float32)
+    eng = L2LEngine(st, lora=LoRA(st.dims, r=4, alpha=8, seed=1, b_init_std=0.05))
+    d = st.dims
+    eng.boundaries.reserve(d.n_layers, 4 * 12 * d.hidden, eng.res_dtype)
+    for T in (7, 12, 9):                      # different lengths, all within the reserved size
+        ids = torch.randint(3, 500, (4, T))
+        attn = torch.ones(4, T, dtype=torch.long)
+        lm = torch.zeros(4, T, dtype=torch.bool)
+        lm[:, T // 2:] = True
+        eng.train_pass(ids, attn, lm, make_loss_fn(torch.randn(4), 0.0, 1.0, {}), micro_batch=2)
+    assert eng.boundaries.allocations == 1
+    assert any(p.grad is not None and p.grad.abs().sum() > 0 for p in eng.lora.parameters())

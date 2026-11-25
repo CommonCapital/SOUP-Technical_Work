@@ -1,0 +1,9 @@
+
+Fetching 10 files:   0%|          | 0/10 [00:00<?, ?it/s]
+Fetching 10 files: 100%|██████████| 10/10 [00:00<00:00, 994.62it/s]
+load {"seconds": 23.024529179000012, "alloc_peak_gib": 1.4115338325500488, "reserved_peak_gib": 1.4140625, "smi_peak_mib": 8319}
+generate {"seconds": 326.697714268, "alloc_peak_gib": 7.172761917114258, "reserved_peak_gib": 7.26171875, "smi_peak_mib": 14337}
+train_pass {"seconds": 103.87995074800006, "alloc_peak_gib": 3.961909770965576, "reserved_peak_gib": 7.75, "smi_peak_mib": 14877}
+logits_chunk_512 {"seconds": 31.420743619000064, "alloc_peak_gib": 3.996863842010498, "reserved_peak_gib": 7.75, "smi_peak_mib": 14877}
+logits_chunk_8192 {"seconds": 10.514838677999933, "alloc_peak_gib": 6.672943115234375, "reserved_peak_gib": 7.75, "smi_peak_mib": 14877}
+log: /kaggle/working/soup-grpo/results/logs/budget_20261125-152912.json

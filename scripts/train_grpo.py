@@ -108,6 +108,13 @@ def main():
     print(f"LoRA trainable params: {eng.lora.n_params():,}  (r={a.lora_r}, alpha={a.lora_alpha}, "
           f"scale={eng.lora.scale})", flush=True)
     assert eng.lora.n_params() > 0 and all(p.requires_grad for p in params)
+    # Reserve host memory for the per-layer inputs of the largest possible training pass once, so the
+    # buffer never grows mid-run (growing it ran the 31 GB Kaggle host out of RAM in the dry run, E14).
+    p_max = max(len(x) for x in encode_prompts(tok, [json.loads(line) for line in open(a.data)], a.prompt))
+    eng.boundaries.reserve(eng.d.n_layers, a.train_seqs_per_pass * (p_max + a.max_new) * eng.d.hidden,
+                           eng.res_dtype)
+    print(f"boundary store: {eng.boundaries.nbytes() / 2**30:.2f} GiB host memory "
+          f"({a.train_seqs_per_pass} seqs x {p_max + a.max_new} tokens), host RSS {host_rss_gb():.1f} GB", flush=True)
 
     st = None
     if loaded is not None:
@@ -223,7 +230,7 @@ def main():
             "copies": eng.streamer.stats.copies - copies0,
             "copied_gb": (eng.streamer.stats.bytes - bytes0) / 2**30,
             "time_s": {**T, "total": time.perf_counter() - t0},
-            "engine_timers_s": dict(eng.timers), "host_rss_gb": host_rss_gb(),
+            "engine_timers_s": dict(eng.timers), "host_rss_gb": host_rss_gb(), "boundary_allocations": eng.boundaries.allocations,
             "nonfinite_events": eng.nonfinite_events,
             "epoch": stream.state.epoch, "position": stream.state.position,
         })
