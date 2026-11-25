@@ -9,3 +9,5 @@ __pycache__/
 checkpoints/
 runs/
 hf_cache/
+kaggle/push/
+kaggle/out/
