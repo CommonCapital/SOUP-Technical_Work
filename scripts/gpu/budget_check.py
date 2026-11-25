@@ -50,15 +50,20 @@ class SmiPeak:
         return p
 
 
+CUDA = torch.cuda.is_available()   # False only in local CPU tests of this script
+
+
 def phase(name, res, smi, t0):
-    torch.cuda.synchronize()
+    if CUDA:
+        torch.cuda.synchronize()
     time.sleep(0.3)
     res[name] = {"seconds": time.perf_counter() - t0,
-                 "alloc_peak_gib": torch.cuda.max_memory_allocated() / 2**30,
-                 "reserved_peak_gib": torch.cuda.max_memory_reserved() / 2**30,
+                 "alloc_peak_gib": torch.cuda.max_memory_allocated() / 2**30 if CUDA else 0.0,
+                 "reserved_peak_gib": torch.cuda.max_memory_reserved() / 2**30 if CUDA else 0.0,
                  "smi_peak_mib": smi.reset()}
     print(name, json.dumps(res[name]), flush=True)
-    torch.cuda.reset_peak_memory_stats()
+    if CUDA:
+        torch.cuda.reset_peak_memory_stats()
     return time.perf_counter()
 
 
@@ -80,7 +85,7 @@ def main():
     smi = SmiPeak()
     res = {"estimate_gb": ESTIMATE_GB}
     t = time.perf_counter()
-    eng, mdir = build_engine(a.model, "cuda", a.dtype, lora_r=16, lora_alpha=32)
+    eng, mdir = build_engine(a.model, "cuda" if CUDA else "cpu", a.dtype, lora_r=16, lora_alpha=32)
     t = phase("load", res, smi, t)
     res["lora_params"] = eng.lora.n_params()
     tok = tokenizer_for(mdir)
@@ -90,7 +95,7 @@ def main():
     eng.timers.clear()
     c0 = eng.streamer.stats.copies
     outs = eng.generate(pids, a.max_new, 1.0, stop_ids=(), pad_id=tok.pad_token_id, batch_size=a.batch,
-                        generator=torch.Generator(device="cuda").manual_seed(0))
+                        generator=torch.Generator(device="cuda" if CUDA else "cpu").manual_seed(0))
     res["gen_copies"] = eng.streamer.stats.copies - c0
     res["gen_timers"] = dict(eng.timers)
     res["decode_pass_s"] = eng.timers["decode"] / (a.max_new - 1)
@@ -98,7 +103,7 @@ def main():
     t = phase("generate", res, smi, t)
 
     ids, attn, lm = pack_sequences(pids, [o.tokens for o in outs], tok.pad_token_id)
-    adv = torch.randn(len(outs), device="cuda")
+    adv = torch.randn(len(outs), device="cuda" if CUDA else "cpu")
     eng.timers.clear()
     opt = torch.optim.AdamW(eng.lora.parameters(), lr=0.0)   # Adam state is part of the training budget
     eng.train_pass(ids, attn, lm, make_loss_fn(adv, 0.0, float(len(outs) * a.max_new), {}), a.micro_batch)

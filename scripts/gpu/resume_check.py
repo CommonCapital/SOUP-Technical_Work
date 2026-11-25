@@ -36,6 +36,7 @@ def main():
     ap.add_argument("--steps", type=int, default=3)
     ap.add_argument("--kill-step", type=int, default=1)
     ap.add_argument("--out", default=str(ROOT / "runs" / "resume_check"))
+    ap.add_argument("--kill-delay", type=float, default=3.0, help="seconds into step KILL_STEP before kill -9")
     a = ap.parse_args()
 
     out = Path(a.out)
@@ -63,10 +64,13 @@ def main():
         except FileNotFoundError:
             pass
         time.sleep(0.2)
-    time.sleep(3)                       # inside step KILL_STEP (after its IDs were logged)
-    os.kill(p.pid, signal.SIGKILL)
+    time.sleep(a.kill_delay)            # inside step KILL_STEP (after its IDs were logged)
+    finished_before_kill = p.poll() is not None
+    if not finished_before_kill:
+        os.kill(p.pid, signal.SIGKILL)
     p.wait()
     killed_alive = p.poll() is None
+    killed_mid_run = (not finished_before_kill) and p.returncode == -signal.SIGKILL
     with open(out / "b2.log", "w") as f:
         subprocess.run(args + ["--run-dir", str(out / "b")], stdout=f, stderr=subprocess.STDOUT, cwd=ROOT, check=True)
 
@@ -77,6 +81,7 @@ def main():
     res = {
         "model": a.model, "dtype": a.dtype, "steps": a.steps, "kill_step": a.kill_step,
         "trainer_dead_after_kill": not killed_alive,
+        "killed_mid_run": killed_mid_run,   # False = the run ended before the kill: the test proves nothing
         "resumed_line": [line for line in open(out / "b2.log") if "resumed" in line][:1],
         "ids_identical": [x["ids"] for x in ida] == [x["ids"] for x in idb],
         "metrics_steps_b": [x["step"] for x in mb],
@@ -85,7 +90,7 @@ def main():
         "samples_identical": [s["completion"] for s in sa] == [s["completion"] for s in sb],
         "seconds_run_a": t_a,
     }
-    res["PASS_resume"] = (res["ids_identical"] and res["metrics_steps_b"] == list(range(a.steps))
+    res["PASS_resume"] = (res["killed_mid_run"] and res["ids_identical"] and res["metrics_steps_b"] == list(range(a.steps))
                           and res["trainer_dead_after_kill"])
     res["PASS_exact"] = (res["PASS_resume"] and res["samples_identical"]
                          and res["rewards"][0] == res["rewards"][1] and res["adapter_norms"][0] == res["adapter_norms"][1])
