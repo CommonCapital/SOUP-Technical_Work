@@ -178,6 +178,7 @@ if not LOCAL_TEST:
 # 4. Model download (~8 GB) and correctness of the engine on this GPU
 t0 = time.time()
 from soupgrpo.runtime import resolve_model_dir
+print("downloading", MODEL, "(~8 GB, a few minutes; no output until done) ...", flush=True)
 print("model at", resolve_model_dir(MODEL), f"({time.time() - t0:.0f}s)")
 run([PY, "-m", "pytest", "-q", "-x"], log="pytest.txt", check=False)
 if not LOCAL_TEST:
