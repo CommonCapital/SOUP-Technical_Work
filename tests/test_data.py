@@ -11,8 +11,17 @@ def _load(prefix):
     return {f.name: read_jsonl(f) for f in DATA.glob(f"{prefix}_*.jsonl")}
 
 
+def _training_files():
+    """Files training reads: train_<lvl>_main.jsonl replaces train_<lvl>.jsonl
+    when it exists (its last 100 rows became pilot_<lvl>_extra, split_extra.py)."""
+    t = _load("train")
+    for name in [n for n in t if n.endswith("_main.jsonl")]:
+        t.pop(name.replace("_main", ""), None)
+    return t
+
+
 def test_no_train_eval_overlap():
-    train = {p.key() for ps in _load("train").values() for p in ps}
+    train = {p.key() for ps in _training_files().values() for p in ps}
     evals = {p.key() for pre in ("heldout", "pilot") for ps in _load(pre).values() for p in ps}
     assert train and evals
     assert not (train & evals)

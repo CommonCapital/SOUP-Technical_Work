@@ -157,3 +157,33 @@ runs plus evaluation exceed the ~30 GPU-hours per week Kaggle gives.
    answers) is a format gain, not a skill gain (see H9).
 4. If the chosen level is within 10 points of 20% or 60%, 100 more prompts are
    drawn from that level's train split, and those IDs are removed from training.
+
+## Pilot 2 outcome and the training setup, added 2026-11-25 (before the dry run)
+
+Pilot 2 (E13): n4/v2 56.2% (mixed 44%), n5/v2 21.5% (mixed 47%). Rule 2 → **n5/v2**
+(higher mixed share). n5 is within 10 points of 20% → rule 4: 100 more prompts
+from `train_n5.jsonl` (its last 100 rows → `data/pilot_n5_extra.jsonl`;
+training reads `data/train_n5_main.jsonl`, 1,400 rows, `scripts/split_extra.py`).
+**If n5 over all 200 pilot prompts is below 20%, the choice moves to n4/v2**,
+the only other level in range. Otherwise n5 stays.
+
+**Training configuration (fixed now; main run and control differ only in `--shuffle-rewards`):**
+level n5, prompt v2, 512 new tokens, T = 1.0, group 8, **6 prompts per step**
+(48 rollouts), 40 steps, LoRA r16 α32 on the 7 projections, AdamW lr 2e-5,
+warm-up 2 steps, β = 0 (KL to base logged every 5 steps), std-scaled
+advantages, grad clip 1.0, fp16 + fp32 residual, seed 1234, micro-batch 8.
+
+Deviation from the plan: **6 prompts per step instead of 16.** Reason: at 512
+tokens only 48 sequences fit in one generation batch under 8 GB (pilot 2:
+batch 48 peaked at 7.0 GiB allocated); 16 prompts = 128 rollouts = 3 batches
+= ~16 min of decoding per step, ~12 h per run, two runs + evaluation >30 h of
+free GPU. With 48 rollouts: one batch, ~5.2 min decoding per step.
+
+| ID | Prediction (dry run, this configuration) | Confirmed if | If wrong |
+|---|---|---|---|
+| H11b | Peak of our processes ≤ 8,192 MiB in every phase (generate 48×512, train pass, Adam step) | `budget_check.py` our_peak_mib ≤ cap; trainer step logs | lower micro-batch / gen batch, re-measure |
+| H1 | Generation is 70–90% of step time | dry run, 5 steps: generate / total | training pass is the bottleneck: optimise it first |
+| H33 | Step time 5.5–8 min, so 40 steps = 3.7–5.3 h | dry run mean of steps 1–4 | re-plan the budget before the main run |
+| H25 | Zero-advantage groups < 50% per step | dry run, logged per step (with G = 8, P(group all-same) is lower than the pilot's 4-sample share) | raise temperature or filter prompts |
+| H19 | Resume after kill -9 is exact on the 4B | `resume_check.py`: IDs identical and no gaps (PASS_resume); completions identical is reported (PASS_exact) | fix before the main run; the main run must survive a Kaggle session restart |
+| — | lr = 0 leaves the adapter at zero and KL at 0 | 2 steps, lr 0 | the optimiser or adapter wiring is wrong |

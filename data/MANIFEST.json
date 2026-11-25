@@ -64,6 +64,16 @@
     "train_n6.jsonl": {
       "n": 1500,
       "sha256": "6be80d2ed68dc21b9afae76406120ca091aed60f28f4ddbc9c8fafcce0d0009b"
+    },
+    "train_n5_main.jsonl": {
+      "n": 1400,
+      "sha256": "0981ffd7651c839fb60df6b537e524af1e0275bda1cd962ee901e874c32deb67",
+      "derived_from": "train_n5.jsonl"
+    },
+    "pilot_n5_extra.jsonl": {
+      "n": 100,
+      "sha256": "0b90ef469164415173ef0d9f5852e8e1fd0deed7185f0e68eeae2b3c612e7d66",
+      "derived_from": "train_n5.jsonl"
     }
   }
 }

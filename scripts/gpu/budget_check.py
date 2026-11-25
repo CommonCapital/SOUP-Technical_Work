@@ -38,7 +38,7 @@ class SmiPeak:
     def _run(self):
         while not self._stop:
             try:
-                v = int(subprocess.run(["nvidia-smi", "--query-gpu=memory.used", "--format=csv,noheader,nounits"],
+                v = int(subprocess.run(["nvidia-smi", "--id=0", "--query-gpu=memory.used", "--format=csv,noheader,nounits"],
                                        capture_output=True, text=True, timeout=5).stdout.split()[0])
                 self._peak = max(self._peak, v)
             except Exception:
@@ -68,18 +68,25 @@ def main():
     ap.add_argument("--batch", type=int, default=64)
     ap.add_argument("--max-new", type=int, default=256)
     ap.add_argument("--micro-batch", type=int, default=8)
+    ap.add_argument("--dtype", default="fp16", help="fp16 on the T4 (H30)")
+    ap.add_argument("--data", default="data/pilot_n4.jsonl")
+    ap.add_argument("--prompt", default="v2")
     a = ap.parse_args()
+    # memory that was on the card before us (ballast + driver), so peaks are reported as OUR usage
+    bfile = ROOT / "results" / "logs" / "ballast.json"
+    base_mib = json.loads(bfile.read_text())["smi_used_after_mib"] if bfile.exists() else 0
+    cap_mib = json.loads(bfile.read_text())["cap_mib"] if bfile.exists() else 8192
 
     smi = SmiPeak()
     res = {"estimate_gb": ESTIMATE_GB}
     t = time.perf_counter()
-    eng, mdir = build_engine(a.model, "cuda", "bf16", lora_r=16, lora_alpha=32)
+    eng, mdir = build_engine(a.model, "cuda", a.dtype, lora_r=16, lora_alpha=32)
     t = phase("load", res, smi, t)
     res["lora_params"] = eng.lora.n_params()
     tok = tokenizer_for(mdir)
 
-    puzzles = load_puzzles(ROOT / "data" / "pilot_n4.jsonl", a.batch)
-    pids = encode_prompts(tok, puzzles)
+    puzzles = load_puzzles(ROOT / a.data, a.batch)
+    pids = encode_prompts(tok, puzzles, a.prompt)
     eng.timers.clear()
     c0 = eng.streamer.stats.copies
     outs = eng.generate(pids, a.max_new, 1.0, stop_ids=(), pad_id=tok.pad_token_id, batch_size=a.batch,
@@ -87,12 +94,16 @@ def main():
     res["gen_copies"] = eng.streamer.stats.copies - c0
     res["gen_timers"] = dict(eng.timers)
     res["decode_pass_s"] = eng.timers["decode"] / (a.max_new - 1)
+    res["gen_tokens_per_s"] = len(outs) * a.max_new / (eng.timers["decode"] + eng.timers.get("prefill", 0))
     t = phase("generate", res, smi, t)
 
     ids, attn, lm = pack_sequences(pids, [o.tokens for o in outs], tok.pad_token_id)
     adv = torch.randn(len(outs), device="cuda")
     eng.timers.clear()
+    opt = torch.optim.AdamW(eng.lora.parameters(), lr=0.0)   # Adam state is part of the training budget
     eng.train_pass(ids, attn, lm, make_loss_fn(adv, 0.0, float(len(outs) * a.max_new), {}), a.micro_batch)
+    opt.step()
+    opt.zero_grad(set_to_none=True)
     res["train_timers"] = dict(eng.timers)
     res["train_tokens"] = int(attn.sum())
     t = phase("train_pass", res, smi, t)
@@ -113,7 +124,10 @@ def main():
     eng.logit_chunk = 512
 
     res["max_smi_mib_all_phases"] = max(v["smi_peak_mib"] for v in res.values() if isinstance(v, dict) and "smi_peak_mib" in v)
-    res["under_8192_mib"] = res["max_smi_mib_all_phases"] < 8192
+    res["smi_before_us_mib"] = base_mib
+    res["our_peak_mib"] = res["max_smi_mib_all_phases"] - base_mib
+    res["config"] = vars(a)
+    res["under_cap"] = res["our_peak_mib"] <= cap_mib
     out = ROOT / "results" / "logs" / f"budget_{time.strftime('%Y%m%d-%H%M%S')}.json"
     out.write_text(json.dumps(res, indent=2, default=float) + "\n")
     print("log:", out)

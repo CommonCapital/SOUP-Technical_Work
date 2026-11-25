@@ -213,6 +213,9 @@ def main():
             "zero_adv_group_share": zero_groups, "n_trained_seqs": int(len(sel)),
             "len_mean": float(np.mean([r["n_tokens"] for r in rows])),
             "truncated_share": float(np.mean([r["finish"] == "length" for r in rows])),
+            # H9 / pilot-2 rule 3: accuracy among answers that finished, to separate "writes shorter" from "calculates better"
+            "acc_finished": (float(np.mean([r["reward"] for r in rows if r["finish"] == "eos"]))
+                             if any(r["finish"] == "eos" for r in rows) else None),
             "thinking_share": float(np.mean([r["thinking"] for r in rows])),
             "loss": loss_total, "grad_norm": grad_norm, "lr": lr_now,
             "adapter_delta_norm": delta, "adapter_delta_change": delta - prev_delta,
