@@ -65,6 +65,7 @@ def parse():
     ap.add_argument("--resident-layers", type=int, default=0)
     ap.add_argument("--no-prefetch", action="store_true")
     ap.add_argument("--logit-chunk", type=int, default=512)
+    ap.add_argument("--dflash", default=None, help="drafter dir (z-lab/Qwen3-4B-DFlash-b16): speculative rollouts (H6)")
     ap.add_argument("--keep-ckpts", type=int, default=2)
     ap.add_argument("--save-samples", type=int, default=4, help="completions per step written to samples.jsonl")
     return ap.parse_args()
@@ -101,6 +102,11 @@ def main():
     tok = tokenizer_for(mdir)
     stops = stop_ids(tok)
     pad_id = tok.pad_token_id
+    spec = None
+    if a.dflash:
+        from soupgrpo.dflash import DFlashGenerator, Drafter
+        spec = DFlashGenerator(eng, Drafter.load(a.dflash, a.device, eng.dtype))
+        print(f"DFlash drafter resident: {spec.dr.nbytes() / 2**30:.2f} GiB", flush=True)
     params = eng.lora.parameters()
     opt = torch.optim.AdamW(params, lr=a.lr, betas=(0.9, 0.99), weight_decay=0.0, eps=1e-8)
     gen = torch.Generator(device=a.device).manual_seed(a.seed + 1)
@@ -145,7 +151,12 @@ def main():
         pids = encode_prompts(tok, batch, a.prompt)
         rep_p = [p for p in pids for _ in range(a.group)]
         rep_z = [z for z in batch for _ in range(a.group)]
-        outs = eng.generate(rep_p, a.max_new, a.temperature, stops, pad_id, a.gen_batch, gen)
+        if spec is None:
+            outs = eng.generate(rep_p, a.max_new, a.temperature, stops, pad_id, a.gen_batch, gen)
+        else:
+            spec.stats = type(spec.stats)()
+            outs = spec.generate(rep_p, a.max_new, a.temperature, stops, pad_id, a.gen_batch, gen)
+            m["dflash"] = spec.stats.summary()
         rows = score_completions(tok, rep_z, outs, stops)
         T["generate"] = time.perf_counter() - t0
         m["gpu_gen"] = gpu_mem()

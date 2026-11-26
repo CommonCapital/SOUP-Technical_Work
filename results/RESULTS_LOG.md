@@ -115,3 +115,21 @@ Raw files: `results/kaggle/control/`; every number below is reproduced by
 | ID | Hypothesis | Prediction | Real result | Valid? | Verdict | If bad: cause → action | Log |
 |---|---|---|---|---|---|---|---|
 | E17 | H8, H26, H9, H10, H28 + validity; the SHIP rule | pre-registered | Held-out n5, 500 puzzles, greedy, paired: **base 19.2%**, **main 24.8%** (+5.6 points, CI [+1.2, +10.0], McNemar p 0.017), **control (shuffled rewards) 28.8%** (+9.6, CI [+5.4, +13.8], p 1.4e-5), **main − control −4.0** (CI [−8.4, +0.4], p 0.10), merged bf16 26.2% (+7.0 vs base). The gains are mostly **finishing within 512 tokens**: finished share base 21.2% → main 29.6% → control 33.6%; accuracy among finished answers *fell* (base 90.6% of 106 → main 83.8% of 148 → control 85.7% of 168; the newly finished answers are harder ones). GSM8K: base 94%, main 92% (−2, CI [−6, +2]). KL(adapter ‖ base) per token on own answers: **main 0.065 > control 0.029** (H28 confirmed: real reward moved the policy more, without more accuracy). Training curves: both runs saw **identical prompts per step**; training reward rose the same in both (main +0.18 over 40 steps, control +0.22), accuracy among finished training answers rose in both (main 0.70 → 0.90, control 0.59 → 0.73). Independent checker 100% on base/main/control/merged. Validity: cap 8,158 MiB in both, 0 non-finite, 40/40 steps each | yes | **H8 confirmed** (+5.6, inside the predicted +5–15); **H26 rejected** (control improved, more than main); **H9 fails (a)** (accuracy among finished fell 6.8 points), (b) and (c) pass; **H10 confirmed**; **H28 confirmed**. **SHIP rule: DON'T SHIP** (rules 2 and 3a fail) | cause (best reading, one seed per arm): the 512-token cap binds for ~79% of base answers, so any change that makes answers finish more often raises the score; a no-signal adapter did that as well as the real one. **Correction to E16:** the rising training reward and "accuracy among finished 0.70 → 0.90" were not evidence of learning: the control, with the same prompt order, shows the same rise | `results/final/verdict.json`, `results/final/*.json` |
+
+## E18 — DFlash on the Mac (tiny model, CPU): an intermittent NaN in speculative decoding (2026-11-26)
+
+Own re-implementation of the DFlash drafter + batched verification (`src/soupgrpo/dflash.py`),
+tests in `tests/test_dflash.py`: greedy output identical to plain L2L greedy (random, oracle and
+half-oracle drafters, stop tokens, LoRA on/off); the acceptance rule reproduces p exactly on a
+synthetic 6-token example (400k draws); end-to-end sampling frequencies match plain sampling
+and the deliberately biased rule is rejected.
+
+**Bug found by the local notebook test:** the `--dflash` trainer run crashed twice with
+"probability tensor contains nan", while the same command run by hand passed. Cause: rows accept
+different numbers of tokens, so the verify pass reads KV slots up to the *longest* row; for shorter
+rows some of those slots were never written. They are masked, but SDPA adds the mask (−inf) to
+q·k, and allocator garbage that happens to be NaN gives NaN + (−inf) = NaN. Whether it fires
+depends on what memory `torch.empty` hands out, hence intermittent. In greedy mode this would have
+been **silent** (argmax of NaN logits = token 0, no crash). Fix: KV cache zero-initialised.
+Regression test fills every `torch.empty` with NaN and makes rows drift apart (fails before the
+fix, passes after). The plain engine is not affected (it never reads past what it wrote).

@@ -135,7 +135,17 @@ def decoder_layer(x, w: dict, d: Qwen3Dims, cos, sin, attn_mask, lora: dict | No
     k = rms_norm(k, w["k_norm"], d.rms_eps).transpose(1, 2)
     v = v.transpose(1, 2)
     q, k = apply_rope(q, cos, sin), apply_rope(k, cos, sin)
-    if kv is not None:
+    if kv is not None and isinstance(kv_pos, tuple):
+        # per-row write positions (speculative decoding: rows accept different numbers of tokens).
+        # kv_pos = (start [B] long tensor, kv_len int): row b writes slots start[b]..start[b]+T-1,
+        # attention reads slots [0, kv_len) under the caller's mask.
+        start, kv_len = kv_pos
+        idx = start[:, None] + torch.arange(T, device=start.device)[None]        # [B, T]
+        rows = torch.arange(B, device=start.device)[:, None]
+        kv.k[rows, :, idx] = k.transpose(1, 2)
+        kv.v[rows, :, idx] = v.transpose(1, 2)
+        k, v = kv.k[:, :, :kv_len], kv.v[:, :, :kv_len]
+    elif kv is not None:
         kv.k[:, :, kv_pos:kv_pos + T] = k
         kv.v[:, :, kv_pos:kv_pos + T] = v
         k, v = kv.k[:, :, :kv_pos + T], kv.v[:, :, :kv_pos + T]

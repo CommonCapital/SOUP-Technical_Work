@@ -240,3 +240,26 @@ held-out prompts); also the merged model's own 500-puzzle evaluation.
 
 **What ships:** the merged bf16 model if H27 passes for it; otherwise the
 adapter (and the report says the bf16 merge lost the change, H29).
+
+## Speed A/B and DFlash, added 2026-11-26 (after the verdict; before any of these runs)
+
+These do not change the SHIP verdict (it is about the trained model). They test the
+engine claims (H2, H3, H5) and the DFlash bonus (H6, H7, H21-H23). One Kaggle T4
+session, everything compared **within that session** (never across hosts).
+Scripts: `scripts/gpu/speed_ab.py`, `scripts/gpu/dflash_bench.py`, `train_grpo.py --dflash`.
+
+**Protocol.** Speed arms alternate A-B-B-A, twice (8 runs per comparison). 8 GB cap
+(ballast) as in every run. Layer copy time t_copy is measured in the same process
+(36 copies of one 202 MB layer).
+
+| ID | Prediction (numbers) | Measured as | If wrong |
+|---|---|---|---|
+| H3 | Training: prefetch hides > 80% of copy time. Decoding: it hides < 20% (decode is copy-bound: per layer, compute for 48 tokens is ~1-2 ms vs a 16 ms copy, so there is little compute to hide copies behind); decode pass with prefetch within 10% of t_copy | hidden share = (t_off − t_on) / t_copy; train = 2 passes × (forward + backward) = 4 × 36 copies | look for a missing overlap (events, stream sync) |
+| H2 | At equal memory, 0 resident layers + batch 48 beats 8 resident + batch 32 (8 × 202 MB = room for 16 sequences of 712-token KV): ratio of tokens/s 1.10-1.25 (model: 48/36 vs 32/28 = 1.17) | decode tokens/s, KV allocated for 712 tokens in both arms; greedy tokens of the 32 shared prompts must be identical in both arms | report why the pass-time model is wrong |
+| H5 | Per-phase placement (16 layers resident during training, loaded before and freed after, both timed) saves < 1% of a step (< 3.7 s of ~366 s), because prefetch already hides training copies (H3) and generation (87% of the step) is unchanged. **Predicted: does not pay** | training phase (2 passes of 24 × ~620 tokens + Adam) time, fixed vs per-phase | if it saves > 1%, adopt it and say so |
+| D0 | Drafter implementation sanity: base model, greedy, mean committed tokens per verification pass (incl. the bonus) ≥ 3 (paper: τ ≈ 6.5 on math at T = 0) | `dflash_bench.py greedy`, 96 held-out prompts | < 2 means my re-implementation is wrong: all DFlash speed results void |
+| H21 | **Amended:** the CPU fp32 test must be 100% identical (it is: `tests/test_dflash.py`, random, oracle and half-oracle drafters). On the T4 in fp16, a 16-token verify pass uses different matmul shapes than 1-token decoding, so exact identity can break at numerical near-ties. Rule: with the **main adapter**, vs plain L2L greedy run in the same session at the same batch (32), ≥ 90% of the 96 answers identical and **every** divergence starts where the plain run's top-2 logit gap is < 0.05 | `dflash_bench.py greedy --plain` | a divergence at a clear (≥ 0.05) gap = a bug (wrong LoRA in the verifier, misaligned KV): DFlash results void |
+| H7 | Acceptance falls as the policy moves from the base: base > control (KL 0.029) > main (KL 0.065). **Deviation:** only step 0 (base) and step 40 (both adapters) exist, no step 10/20 checkpoints were kept | mean accept length, greedy, same 96 prompts | report that LoRA barely changed acceptance |
+| H22 | Speculative sampling keeps the policy's distribution: one prompt, 2,000 samples of 16 tokens at T = 1, plain vs DFlash (main adapter), chi-square per position 1-15, all p > 0.05/15 (Bonferroni). Power check: the deliberately biased "accept every draft" rule must give min p < 0.05/15 | `dflash_bench.py sampling` | fix the acceptance rule; DFlash sampling results void |
+| H23 | Speedup (tokens/s, T = 1, 512 tokens) is lower at larger batch: x(8) > x(16) > x(32); batch 48 does not fit with the drafter (+1.1 GB weights, +0.6 GB drafter cache) and will OOM-split | `dflash_bench.py sweep` | report the best batch with and without DFlash |
+| H6 | Original: decoding passes ↓ 3-4×, GRPO step time ↓ ≥ 2×. **Updated expectation, written before the run:** the drafter costs memory, so the 48 rollouts must run as 2 batches of 24 (plain: 1 batch of 48), and each batch waits for its slowest row. Expected: passes per batch ↓ 2.5-3.5×, generation ↓ 1.2-1.8×, step ↓ 1.2-1.7× → H6 (≥ 2×) **likely rejected** | real GRPO step 0 (same seed, same prompts) with and without `--dflash`, `--gen-batch 24` vs 48, A-B-B-A (1 step each) | report where the time goes (passes, batches, verify vs draft) |

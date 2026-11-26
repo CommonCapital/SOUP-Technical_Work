@@ -67,6 +67,32 @@ class LayerStreamer:
         self.stats = StreamStats(per_layer_copies=[0] * n_layers)
         self._next_slot = 0
 
+    def set_resident(self, n: int) -> None:
+        """Keep the LAST n layers on the GPU from now on (n = 0 frees them).
+        Used to give one phase (e.g. training) a different placement than
+        another (H5); the cost of loading them is paid here, by the caller's clock."""
+        n_layers = self.store.dims.n_layers
+        want = set(range(n_layers - n, n_layers)) if n else set()
+        for li in list(self.resident):
+            if li not in want:
+                del self.resident[li]
+        for li in sorted(want - set(self.resident)):
+            self.resident[li] = self.store.views(self.store.layers[li].to(self.device, non_blocking=True))
+        self.slot_layer = [-1] * len(self.bufs)
+        if self.cuda:
+            torch.cuda.synchronize(self.device)
+            torch.cuda.empty_cache()
+
+    def set_prefetch(self, on: bool) -> None:
+        """H3 A/B: off = every layer copy runs on the compute stream, so copies
+        and compute strictly alternate (nothing hidden)."""
+        if self.cuda:
+            torch.cuda.synchronize(self.device)
+        self.prefetch = on and self.cuda
+        self.copy_stream = torch.cuda.Stream(self.device) if self.prefetch else None
+        self.ready_ev = [None] * len(self.bufs)
+        self.free_ev = [None] * len(self.bufs)
+
     def _issue(self, li: int) -> int | None:
         if li in self.resident:
             return None
@@ -207,6 +233,7 @@ class L2LEngine:
         self.logit_chunk = logit_chunk
         self.boundaries = BoundaryStore(pin=self.device.type == "cuda")
         self.timers: dict[str, float] = {}
+        self.kv_min_len = 0       # benchmarks: allocate the KV cache as if answers were this long (equal-memory A/B)
 
     # ---------------- helpers
     def _lora(self, li: int, enabled: bool = True):
@@ -263,7 +290,7 @@ class L2LEngine:
     def _generate_batch(self, prompts, max_new, temperature, stop_ids, pad_id, gen, lora_enabled):
         d, dev = self.d, self.device
         B, P = len(prompts), max(len(p) for p in prompts)
-        T_max = P + max_new
+        T_max = max(P + max_new, self.kv_min_len)
         ids = torch.full((B, P), pad_id, dtype=torch.long)
         attn = torch.zeros((B, T_max), dtype=torch.long)
         for b, p in enumerate(prompts):  # left padding: all prompts end at index P-1

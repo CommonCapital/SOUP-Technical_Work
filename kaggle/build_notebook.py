@@ -20,7 +20,7 @@ import tarfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-STAGE = __import__("os").environ.get("SOUP_STAGE", "pilot1")   # pilot1 | pilot2 | dryrun | train_main | train_control
+STAGE = __import__("os").environ.get("SOUP_STAGE", "pilot1")   # pilot1 | pilot2 | dryrun | train_main | train_control | dflash
 INCLUDE = ["src", "scripts", "tests", "data", "predictions", "pyproject.toml", "README.md", "GPU_RUNBOOK.md"]
 
 
@@ -100,6 +100,113 @@ amendment after dry run 1, and "Evaluation protocol and the SHIP rule"). Steps 1
 If a session ever dies mid-run: add this notebook's failed version as an **Input** (Add Input -> Your Work) and
 run again; the training cell finds the saved run directory and resumes exactly (H19).
 """
+
+MD_INTRO_DFLASH = """# Soup GRPO task: step 4, speed A/B tests + DFlash speculative decoding (Kaggle T4)
+
+**Before running:**
+1. Settings: **Accelerator: GPU T4 x2** and **Internet: On**.
+2. **Add Input -> Your Work -> Notebooks:** add **soup_train_main** and **soup_train_control** (their
+   finished versions). This gives this run the two trained adapters. Without them it still runs, on the base model only.
+3. **Save Version -> Save & Run All (Commit)**, close the tab. Takes about **3 hours**. When it shows Complete,
+   open its **Output** tab and download **`soup_results.zip`**.
+
+Pre-registered in `predictions/PREDICTIONS.md`, "Speed A/B and DFlash". Steps 1-5 are the usual safety checks.
+6. **Speed A/B (H2, H3, H5):** prefetch on/off, resident layers at equal memory, per-phase placement.
+7. Download the DFlash drafter (z-lab/Qwen3-4B-DFlash-b16, 1.07 GB, weights only) and find the adapters.
+8. **Greedy identity + acceptance (H21, H7, D0):** 96 held-out puzzles, main adapter (plain run too), base, control.
+9. **Batch sweep (H23):** plain vs DFlash at batch 8 / 16 / 32 / 48, T = 1.
+10. **Sampling test (H22):** 2,000 samples, plain vs DFlash, chi-square; biased rule as power check.
+11. **Real GRPO step with and without DFlash (H6)**, A-B-B-A.
+"""
+
+DFLASH_CELLS = ['''
+# 6. Speed A/B: H3 prefetch on/off, H2 resident layers at equal memory, H5 per-phase placement
+q = ["--quick", "--dtype", "fp32"] if LOCAL_TEST else []
+run([PY, "scripts/gpu/speed_ab.py", "--model", MODEL, *q], log="speed_ab.txt")
+''', '''
+# 7. DFlash drafter (weights + config only; none of its code is run) and the trained adapters
+import shutil, zipfile
+if LOCAL_TEST:
+    from soupgrpo.dflash import write_random_drafter
+    from soupgrpo.runtime import resolve_model_dir
+    DRAFTER = write_random_drafter(WORK / "drafter", resolve_model_dir(MODEL), 2, (1, 2), 16, 7)
+else:
+    from huggingface_hub import hf_hub_download
+    for f in ("config.json", "model.safetensors"):
+        DRAFTER = Path(hf_hub_download("z-lab/Qwen3-4B-DFlash-b16", f)).parent
+print("drafter at", DRAFTER, [p.name for p in DRAFTER.iterdir()])
+ADAPTERS = {}
+inp = Path("/kaggle/input")
+for name in ("main", "control"):
+    hits = sorted(inp.glob(f"**/adapters/{name}/adapter_config.json")) if inp.exists() else []
+    if hits:
+        ADAPTERS[name] = hits[-1].parent
+        continue
+    for z in (sorted(inp.glob("**/soup_results.zip")) if inp.exists() else []):
+        with zipfile.ZipFile(z) as zf:
+            members = [m for m in zf.namelist() if m.startswith(f"adapters/{name}/")]
+            if members and f"adapters/{name}/adapter_config.json" in members:
+                zf.extractall(WORK / "inputs" / z.parent.name, members)
+                ADAPTERS[name] = WORK / "inputs" / z.parent.name / "adapters" / name
+                break
+print("adapters found:", {k: str(v) for k, v in ADAPTERS.items()} or "none (base model only)")
+(REPO / "results/logs/dflash_inputs.json").write_text(json.dumps({"drafter": str(DRAFTER),
+    "adapters": {k: str(v) for k, v in ADAPTERS.items()}}, indent=1))
+''', '''
+# 8. H21 greedy identity (main adapter, plain run in this session too), D0 / H7 acceptance (base, control)
+DB = [PY, "scripts/gpu/dflash_bench.py"]
+SM = ["--model", MODEL, "--drafter", DRAFTER, *(["--dtype", "fp32"] if LOCAL_TEST else [])]
+N = ["--n", "4", "--batch", "2", "--max-new", "24"] if LOCAL_TEST else ["--n", "96", "--batch", "32", "--max-new", "512"]
+order = [("main", True), ("base", False), ("control", False)]
+for tag, plain in order:
+    if tag != "base" and tag not in ADAPTERS:
+        print("skip", tag, "(adapter not attached)")
+        continue
+    ad = ["--adapter", ADAPTERS[tag]] if tag != "base" else []
+    run([*DB, "greedy", *SM, *ad, *N, *(["--plain"] if plain else []), "--ref", f"data/ref_greedy/{tag}.jsonl",
+         "--tag", tag], log=f"dflash_greedy_{tag}.txt", check=False)
+if "main" not in ADAPTERS:      # H21 then runs on the base model (no LoRA)
+    run([*DB, "greedy", *SM, *N, "--plain", "--tag", "base_plain"], log="dflash_greedy_base_plain.txt", check=False)
+''', '''
+# 9. H23 batch sweep: plain vs DFlash tokens/s at T = 1, 512 new tokens (base model)
+B = ["--batches", "2", "4", "--max-new", "16"] if LOCAL_TEST else ["--batches", "8", "16", "32", "48", "--max-new", "512"]
+run([*DB, "sweep", *SM, *B, "--tag", "base"], log="dflash_sweep.txt", check=False)
+''', '''
+# 10. H22 sampling test: 2,000 samples x 16 tokens at T = 1, plain vs DFlash (current policy = main adapter)
+ad = ["--adapter", ADAPTERS["main"]] if "main" in ADAPTERS else []
+S = ["--samples", "60", "--batch", "30", "--dbatch", "30"] if LOCAL_TEST else ["--samples", "2000", "--batch", "48", "--dbatch", "32"]
+run([*DB, "sampling", *SM, *ad, *S, "--tag", "main" if ad else "base"], log="dflash_sampling.txt", check=False)
+''', '''
+# 11. H6: real GRPO step 0 (same seed, same prompts) plain (A) vs DFlash (B), A-B-B-A, one step per run
+if LOCAL_TEST:
+    cfg = ["--prompts-per-step", "2", "--group", "4", "--max-new", "24", "--train-seqs-per-pass", "8",
+           "--micro-batch", "4", "--dtype", "fp32"]
+    gb = {"A": "8", "B": "4"}
+else:
+    cfg = ["--prompts-per-step", "6", "--group", "8", "--max-new", "512", "--train-seqs-per-pass", "24",
+           "--micro-batch", "8", "--dtype", "fp16"]
+    gb = {"A": "48", "B": "24"}
+H6 = {"A": [], "B": []}
+for i, arm in enumerate("ABBA"):
+    rd = WORK / f"runs/h6_{i}_{arm}"
+    extra = ["--dflash", DRAFTER] if arm == "B" else []
+    rc = run([PY, "scripts/train_grpo.py", "--model", MODEL, "--data", "data/train_n5_main.jsonl", "--prompt", "v2",
+              "--steps", "1", "--lr", "2e-5", "--warmup", "2", "--beta", "0", "--log-kl-every", "100", "--seed", "1234",
+              "--temperature", "1.0", "--gen-batch", gb[arm], *cfg, *extra, "--run-dir", rd],
+             log=f"h6_{i}_{arm}.txt", check=False)
+    if rc == 0:
+        m = json.loads(open(rd / "metrics.jsonl").readline())
+        H6[arm].append({"time_s": m["time_s"], "reward": m["reward"], "len_mean": m["len_mean"],
+                        "truncated_share": m["truncated_share"], "dflash": m.get("dflash"),
+                        "smi_mib_after_gen": m.get("smi_mib_after_gen"), "gpu_gen": m.get("gpu_gen")})
+    shutil.rmtree(rd, ignore_errors=True)
+(REPO / "results/logs/h6_steps.json").write_text(json.dumps(H6, indent=1))
+import numpy as np
+for arm in "AB":
+    if H6[arm]:
+        print(arm, "step", np.mean([x["time_s"]["total"] for x in H6[arm]]), "s, generate",
+              np.mean([x["time_s"]["generate"] for x in H6[arm]]), "s")
+''']
 
 CELLS: list[tuple[str, str]] = []
 
@@ -312,7 +419,7 @@ def build_cells(b64: str, sha: str, rev: str):
             "policy to the base model.\n9. **Held-out evaluation of the base model** (the reference for all "
             "comparisons).\n10. **GSM8K** for the base model.")))
     else:
-        md({"pilot1": MD_INTRO, "pilot2": MD_INTRO_PILOT2, "dryrun": MD_INTRO_DRYRUN}[STAGE])
+        md({"pilot1": MD_INTRO, "pilot2": MD_INTRO_PILOT2, "dryrun": MD_INTRO_DRYRUN, "dflash": MD_INTRO_DFLASH}[STAGE])
     code(f'''
 # 1. Unpack code + data (git {rev}, bundle sha256 {sha[:16]})
 import base64, hashlib, io, json, os, subprocess, sys, tarfile, time
@@ -432,6 +539,9 @@ if os.environ.get("SOUP_FORCE_FAIL") == "fp16":   # local test of the failure pa
     elif STAGE == "dryrun":
         for cell in DRYRUN_CELLS:
             guarded(cell)
+    elif STAGE == "dflash":
+        for cell in DFLASH_CELLS:
+            guarded(cell)
     elif STAGE in ("train_main", "train_control"):
         name = STAGE.split("_")[1]
         guarded(TRAIN_CELL.replace("@NAME@", name).replace(
@@ -481,7 +591,7 @@ if not any(0.20 <= a <= 0.60 for a in acc.values()):
 (REPO / "results/pilot/choice.json").write_text(json.dumps({"prompt": PROMPT, "accuracy": acc}, indent=2))
 print(acc)
 ''')
-    if not STAGE.startswith("train"):
+    if STAGE in ("pilot1", "pilot2", "dryrun"):
       guarded('''
 # 8. Summary with the pre-registered selection rule + answers to read by hand
 run([PY, "scripts/pilot_summary.py", *sorted(map(str, (REPO / "results/pilot").glob("*.summary.json")))],
