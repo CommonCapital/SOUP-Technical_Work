@@ -1,0 +1,313 @@
+<!doctype html><html><head><meta charset='utf-8'><title>Report</title><style>
+@page { size: A4; margin: 13mm 13mm 12mm 13mm; }
+body { font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif; font-size: 8.6pt; line-height: 1.32; color: #111; }
+h1 { font-size: 13.5pt; margin: 0 0 4px; } h2 { font-size: 10.5pt; margin: 9px 0 3px; border-bottom: 1px solid #bbb; }
+p { margin: 3px 0 5px; } ul { margin: 2px 0 5px 16px; padding: 0; } li { margin: 1px 0; }
+table { border-collapse: collapse; width: 100%; margin: 4px 0 6px; font-size: 7.9pt; }
+th, td { border: 1px solid #c8c8c8; padding: 1.5px 4px; text-align: left; vertical-align: top; }
+th { background: #f0f0f0; } code { font-size: 7.8pt; background: #f4f4f4; padding: 0 2px; }
+</style></head><body><h1>Qwen3-4B + GRPO + LoRA under an 8 GB GPU cap — <strong>DON'T SHIP</strong></h1>
+<p>Every number below comes from a saved log in <code>results/</code> and is reproduced by
+<code>uv run python scripts/final_analysis.py</code> (verification script). Rules and
+predictions were committed to git <em>before</em> each run (<code>predictions/PREDICTIONS.md</code>,
+commit times are the proof); the experiment log keeps every failure unedited
+(<code>results/RESULTS_LOG.md</code>, entries E00–E17).</p>
+<h2>1. Verdict</h2>
+<p>GRPO training on 5-number Countdown puzzles <strong>did</strong> beat the base model on 500
+held-out puzzles (+5.6 points). But the <strong>shuffled-reward control, trained with
+no real signal, gained more</strong> (+9.6). So the gain cannot be credited to the
+reward. Both gains come mostly from answers that <strong>finish within the 512-token cap</strong>
+rather than better arithmetic: among finished answers, accuracy <em>fell</em>. Two of the
+pre-registered SHIP conditions fail (H26 control, H9a skill vs format), so the
+verdict is <strong>DON'T SHIP</strong>. The system itself (own layer-to-layer engine, 8 GB cap,
+exact resume, two independent checkers) works and is verified.</p>
+<table>
+<thead>
+<tr>
+<th>Model (held-out n5, 500, greedy, 512 tok)</th>
+<th>Accuracy</th>
+<th>Paired Δ vs base [95% CI]</th>
+<th>McNemar p</th>
+<th>Finished</th>
+<th>Acc. among finished</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Base Qwen3-4B</td>
+<td>19.2%</td>
+<td>—</td>
+<td>—</td>
+<td>21.2%</td>
+<td>90.6% (106)</td>
+</tr>
+<tr>
+<td>Base + adapter (main, 40 steps)</td>
+<td>24.8%</td>
+<td><strong>+5.6 [+1.2, +10.0]</strong></td>
+<td>0.017</td>
+<td>29.6%</td>
+<td>83.8% (148)</td>
+</tr>
+<tr>
+<td>Control (shuffled rewards, 40 steps)</td>
+<td>28.8%</td>
+<td><strong>+9.6 [+5.4, +13.8]</strong></td>
+<td>1e-5</td>
+<td>33.6%</td>
+<td>85.7% (168)</td>
+</tr>
+<tr>
+<td>Main − control</td>
+<td></td>
+<td>−4.0 [−8.4, +0.4]</td>
+<td>0.10</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>Merged into weights, stored bf16</td>
+<td>26.2%</td>
+<td>+7.0 [+2.8, +11.4]</td>
+<td>0.002</td>
+<td>29.2%</td>
+<td>89.7% (146)</td>
+</tr>
+<tr>
+<td>GSM8K, 100 questions: base → main</td>
+<td>94% → 92%</td>
+<td>−2 [−6, +2]</td>
+<td>0.63</td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p><strong>What must change before this could ship:</strong> (1) remove the length confound: re-pilot
+with a cap or prompt where &lt; 5% of base answers are cut off (my own rule 6; I relaxed
+it to 512 tokens for the free-GPU budget, and that is what the verdict turned on);
+(2) ≥ 3 seeds per arm, decided on the mean (one control seed can drift lucky);
+(3) ship the <strong>adapter</strong> or an fp32 merge: the bf16 merge lost 87% of the change (H29).</p>
+<h2>2. Setup</h2>
+<p><strong>Task.</strong> Countdown: use every given number once with + − × ÷ to hit a target.
+Puzzles are generated with a known solution (all 10,500 reference solutions score 1.0),
+train/held-out/pilot splits share no puzzle (hash check). <strong>Reward</strong> 1/0 from an
+AST-whitelisted exact-fraction checker (last <code>&lt;answer&gt;</code> block; cheat tests for
+extra/repeated numbers, unary minus, floats, <code>**</code>, <code>//</code>, ×1 tricks).
+<strong>Pilot path</strong> (rule written before each pilot): n4 with prompt v1 13.2% → prompt v2
+(no example to copy, brief working) 31.2% but 65% cut off at 256 tokens → pilot 2 at
+512 tokens: n4 56.2%, <strong>n5 21.5%</strong> (mixed groups 47%) → n5 chosen, confirmed 23.5%
+over 200 prompts. <strong>Training:</strong> G = 8, 6 prompts/step (48 rollouts), 40 steps,
+T = 1.0, LoRA r16 α32 on 7 projections (33.0 M params), AdamW lr 2e-5, 2 warm-up
+steps, β = 0 (KL to base logged), std-scaled advantages, constant loss normaliser.
+Control = identical run, same seed and prompt order, rewards shuffled.</p>
+<p><strong>Hardware deviation.</strong> The only GPU available was a free <strong>Kaggle T4</strong> (Turing, 16 GB,
+no bf16, no SSH, ~12 h sessions, ~30 GPU-h/week). Handled as follows; total use ≈ 18 GPU-h.</p>
+<table>
+<thead>
+<tr>
+<th>Difference</th>
+<th>How it was handled</th>
+<th>Evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>No bf16</td>
+<td>fp16 weights + matmuls, <strong>fp32 residual stream</strong>; non-finite values counted, never sampled</td>
+<td>H30 on real 4B: top-1 agreement 99.8%, mean |Δlog p| 0.0008, 0 non-finite; 2× faster than fp32</td>
+</tr>
+<tr>
+<td>16 GB, not 8</td>
+<td>a <strong>ballast process</strong> holds all memory above 8,192 MiB, so our processes physically cannot exceed it (CUDA context included)</td>
+<td>nvidia-smi every second, whole session; our peak <strong>8,158 MiB</strong> in every run</td>
+</tr>
+<tr>
+<td>No SSH, session caps</td>
+<td>self-contained notebooks (code + data embedded, hashes checked); exact resume</td>
+<td>kill -9 test on the 4B (H19)</td>
+</tr>
+</tbody>
+</table>
+<h2>3. Engineering</h2>
+<p><strong>Own L2L engine</strong> (<code>src/soupgrpo/l2l.py</code>): weights live in pinned host memory, one flat
+buffer per layer; a ring of 3 GPU buffers is filled by a copy stream with CUDA events
+(prefetch); one engine does prefill, KV-cached decoding and training; training saves
+each layer's input to host and recomputes in backward; log-probs in 512-row chunks.
+<strong>Equivalence:</strong> vs HF Qwen3 on CPU, fp32 logits 1.1e-6 and all LoRA grads ≤ 2.1e-6,
+bf16 within the measured noise floor, greedy 50/50 identical (H17, H18); on CUDA with
+prefetch (2 and 3 buffers, checksums on) identical to the CPU engine (E02b).</p>
+<table>
+<thead>
+<tr>
+<th>Measured on the T4</th>
+<th>Predicted</th>
+<th>Measured</th>
+<th>Verdict</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Decode pass (all 36 layers)</td>
+<td>7.26 GB ÷ 12.3 GB/s = 0.59 s</td>
+<td>0.61 s</td>
+<td>H15 ✓</td>
+</tr>
+<tr>
+<td>Generation share of step time</td>
+<td>80–90%</td>
+<td>87% (main)</td>
+<td>H1 ✓</td>
+</tr>
+<tr>
+<td>Step time / 40 steps</td>
+<td>5.5–8 min</td>
+<td>6.1 min / 4.04 h</td>
+<td>H33 ✓</td>
+</tr>
+<tr>
+<td>GPU peak, generate 48×512 / train</td>
+<td>≤ 8,192 MiB</td>
+<td>7.17 / 4.05 GiB allocated; 8,158 MiB smi</td>
+<td>H11b ✓</td>
+</tr>
+<tr>
+<td>CUDA context + workspace</td>
+<td>0.4–0.7 GB</td>
+<td>0.15 GiB</td>
+<td>H13 ✗ (lower)</td>
+</tr>
+<tr>
+<td>Unchunked logits, 8k rows</td>
+<td>OOM</td>
+<td>fits (6.7 GiB)</td>
+<td>H12 ✗</td>
+</tr>
+<tr>
+<td>Host RAM</td>
+<td>13–17 GB</td>
+<td><strong>30.9 GB → crash</strong>, fixed → 22 GB</td>
+<td>H14 ✗</td>
+</tr>
+<tr>
+<td>Merge GPU peak</td>
+<td>&lt; 1 GB</td>
+<td>0.57 GB</td>
+<td>H20 ✓</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Resume (H19):</strong> saving (epoch, position, RNG, adapter, optimizer) atomically gives
+identical IDs/rewards/answers after kill -9 (Mac fake trainer: 10 kills/200 steps;
+0.6B real trainer; 4B on the T4 with a real update). Not run: prefetch on/off and
+residency A/B (H2, H3, H5) and DFlash (H6, H7, H21–H23): the GPU budget went to the
+pilots and both full arms.</p>
+<h2>4. Did the model learn? (proof and its limits)</h2>
+<ul>
+<li><strong>Signal reached the adapter:</strong> adapter norm 0 → 0.76; exact KL(adapter‖base) on its
+  own held-out answers <strong>0.065/token for main vs 0.029 for control</strong> (H28 ✓).</li>
+<li><strong>But not more correct answers than no signal:</strong> main − control −4.0 [−8.4, +0.4] (H26 ✗).
+  Training curves do not prove learning here: with identical prompt order, training reward
+  rose the same in both arms (main +0.18, control +0.22 over 40 steps). I first read the
+  main curve as learning (E16) and corrected it after the control (E17).</li>
+<li><strong>Format vs skill:</strong> the value-correct rate rises with the reward, and the tag rate
+  rises the same (+8.4): the extra correct answers are the extra <em>finished</em> ones (H9a ✗).</li>
+<li><strong>Checker is right:</strong> an independent re-implementation (string search + hand-written
+  parser, no shared code) agrees on 100% of 3,600 saved answers; on the pre-fix pilot files it
+  flags exactly the 52 answers the E11 fix changed there. Hand audit of 30 trained answers: 30/30
+  correctly scored, including one cheat attempt <code>(80/11)*(11/80)</code> (rejected).</li>
+<li><strong>Other skills:</strong> GSM8K −2 points, not significant (H10 ✓).</li>
+<li><strong>Not detected by this setup:</strong> overfitting to the puzzle generator's style (train and
+  test share it); effects that need &gt; 40 steps; seed-to-seed variance (one seed per arm).</li>
+</ul>
+<h2>5. Silent failures: what was checked</h2>
+<table>
+<thead>
+<tr>
+<th>Failure</th>
+<th>Check</th>
+<th>Result</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Checker rejects correct answers</td>
+<td>reading pilot answers by hand</td>
+<td><strong>found (E11):</strong> "write it inside the <code>&lt;answer&gt;</code> tags:" read as the answer; fixed (also "target = equation" order), 3 tests, 1,600 answers rescored (56 wrong→right, 0 right→wrong)</td>
+</tr>
+<tr>
+<td>Checker accepts wrong answers</td>
+<td>cheat tests, 2nd checker, audit of 30</td>
+<td>none found</td>
+</tr>
+<tr>
+<td>Merge silently loses the change</td>
+<td>merged ≠ base checksum + greedy/log-prob vs adapter</td>
+<td><strong>found (E07, E16):</strong> bf16 lost 87% of ΔW; check FAIL → ship adapter</td>
+</tr>
+<tr>
+<td>Host RAM, not GPU, runs out</td>
+<td>per-second host log</td>
+<td><strong>found (E14):</strong> buffer growth held 3 copies; fixed, reserved once</td>
+</tr>
+<tr>
+<td>Mechanics test passes trivially</td>
+<td>require a real update in resume / lr = 0 checks</td>
+<td><strong>found (E14):</strong> all rewards 0 → nothing tested; moved to easy puzzles</td>
+</tr>
+<tr>
+<td>My own cap formula</td>
+<td>recompute from raw nvidia-smi</td>
+<td><strong>found (E12):</strong> +107 MiB baseline not subtracted; fixed</td>
+</tr>
+<tr>
+<td>Prefetch race, KV misalignment</td>
+<td>CUDA vs CPU equivalence, greedy vs HF</td>
+<td>none</td>
+</tr>
+<tr>
+<td>Thinking mode on, wrong template</td>
+<td>assert no <code>&lt;think&gt;</code> in outputs</td>
+<td>0% in all runs</td>
+</tr>
+<tr>
+<td>Data overlap / unsolvable puzzles</td>
+<td>hashes; reference solutions</td>
+<td>0 overlap; all solvable</td>
+</tr>
+<tr>
+<td>Resume repeats or skips data</td>
+<td>ID logs after kill -9</td>
+<td>identical</td>
+</tr>
+<tr>
+<td>fp16 overflow</td>
+<td>non-finite counter in every run</td>
+<td>0</td>
+</tr>
+</tbody>
+</table>
+<h2>6. Hypotheses: prediction vs result</h2>
+<p>✓ confirmed: H1, H4 (36 copies per pass, independent of batch), H8, H10, H15, H17, H18,
+H19, H20, H24 (n5 23.5%), H25 (mean 46% zero-advantage groups, single steps up to 100%),
+H28, H30, H33. ✗ rejected: <strong>H26, H9(a)</strong> (the verdict), H12, H13, H14, H27 (bf16), <strong>H29</strong>
+(predicted &lt; 30% of ΔW lost, measured 87%: I estimated ΔW at 1e-4–4e-4, real ΔW was mostly
+below half a bf16 step ≈ 6e-5), H31 truncation part, H32 n4 part (56.2 vs ≤ 55). Not run:
+H2, H3, H5, H6, H7, H16 (estimated 3–5% from copy counts, not profiled), H21–H23.</p>
+<h2>7. What surprised me, what still concerns me</h2>
+<p>The control result surprised me most: a run with shuffled rewards beat the real run. My
+best reading is that 79% of base answers were cut off, so almost any change in verbosity
+moves the score, and the metric rewarded finishing more than reasoning. I set the &lt; 5%
+truncation rule myself and then relaxed it for the GPU budget; the verdict turned on
+exactly that relaxation. It still concerns me that I cannot separate "control drifted
+lucky" from "the process itself shortens answers" with one seed per arm, and that the
+bf16 merge, the normal way to ship, silently produced a different model.</p>
+<h2>8. AI tool use</h2>
+<p>The plan, code, notebooks and analysis were written with an AI coding assistant (Claude
+Code); I ran every GPU notebook, read the outputs and made the calls on what to run next.
+What was verified rather than trusted: the engine against Hugging Face's reference (fp32
+1e-6), every checker change against hand-read answers and a second independent checker,
+every memory and time claim against raw nvidia-smi and host logs. What was changed or
+redone after checking: the checker (E11), the cap formula (E12), the host-memory buffer
+and the trivially-passing mechanics tests (E14), and the assistant's own reading of the
+training curve as learning, which the control disproved (E16 → E17).</p></body></html>

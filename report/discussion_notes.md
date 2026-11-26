@@ -163,3 +163,20 @@ H24, the pilot section says 100 × 4. Decided before the pilot: 100 × 4, plus
   peaked at 5.8 GiB; the other ~2 GiB was PyTorch's cache keeping freed blocks.
   Fix: expandable segments (less fragmentation) and a fallback that halves a
   batch on out-of-memory and logs it.
+
+## The verdict in plain words (2026-11-26)
+
+- Base 19.2% → trained 24.8% (+5.6, significant). Good on its own.
+- The control got the same prompts in the same order but shuffled rewards, so no
+  real signal. It reached 28.8%. If no-signal training gains as much, the gain
+  isn't from the reward. Pre-registered rule → DON'T SHIP.
+- Why both improved: 79% of base answers were cut off at 512 tokens. Any small
+  change that makes answers finish more often raises the score. Accuracy among
+  finished answers went *down*, so the new correct answers are just newly
+  finished ones.
+- The real reward did reach the model: it moved twice as far from base as the
+  control (KL 0.065 vs 0.029). It just didn't turn into more correct answers in 40 steps.
+- What I'd do next: a cap or prompt where < 5% of answers are cut off, 3+ seeds
+  per arm, ship the adapter (bf16 merge lost 87% of the change).
+- Interview point: the control and the pre-registered rule are what stopped a
+  false positive. Training curve + base comparison alone would have said SHIP.
