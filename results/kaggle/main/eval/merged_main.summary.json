@@ -1,0 +1,49 @@
+{
+  "model": "/kaggle/working/merged_main",
+  "adapter": null,
+  "data": "data/heldout_n5.jsonl",
+  "n_prompts": 500,
+  "samples": 1,
+  "temperature": 0.0,
+  "max_new": 512,
+  "accuracy": 0.262,
+  "wilson95": [
+    0.22537563309481617,
+    0.30225368532589386
+  ],
+  "mixed_prompt_share": null,
+  "all_wrong_share": 0.738,
+  "all_right_share": 0.262,
+  "per_prompt_hist": {
+    "0": 369,
+    "1": 131
+  },
+  "tag_rate": 0.292,
+  "parsed_rate": 0.292,
+  "numbers_rate": 0.282,
+  "value_rate": 0.27,
+  "truncated_share": 0.708,
+  "thinking_share": 0.0,
+  "len_mean": 444.996,
+  "len_p95": 512.0,
+  "seconds": 3464.7457015220025,
+  "engine_timers_s": {
+    "load": 25.519361972808838,
+    "prefill": 28.434891325003264,
+    "decode": 3436.003424034003
+  },
+  "copies": 202752,
+  "dtype": "fp16",
+  "prompt": "v2",
+  "nonfinite_events": 0,
+  "oom_splits": 0,
+  "batch": 48,
+  "gpu": {
+    "alloc_gb": 1.2964215278625488,
+    "reserved_gb": 7.119140625,
+    "peak_alloc_gb": 7.040870666503906,
+    "peak_reserved_gb": 7.119140625
+  },
+  "smi_mib": 14191,
+  "time": "2026-11-26T02:32:38"
+}

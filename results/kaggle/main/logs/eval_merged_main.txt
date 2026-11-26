@@ -1,0 +1,18 @@
+{
+ "accuracy": 0.262,
+ "wilson95": [
+  0.22537563309481617,
+  0.30225368532589386
+ ],
+ "mixed_prompt_share": null,
+ "per_prompt_hist": {
+  "0": 369,
+  "1": 131
+ },
+ "tag_rate": 0.292,
+ "value_rate": 0.27,
+ "truncated_share": 0.708,
+ "thinking_share": 0.0,
+ "len_mean": 444.996,
+ "seconds": 3464.7457015220025
+}

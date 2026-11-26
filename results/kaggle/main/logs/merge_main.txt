@@ -1,0 +1,14 @@
+
+Fetching 10 files:   0%|          | 0/10 [00:00<?, ?it/s]
+Fetching 10 files: 100%|██████████| 10/10 [00:00<00:00, 1207.69it/s]
+{
+ "merged_tensors": 252,
+ "scale": 2.0,
+ "seconds": 31.647146940231323,
+ "gpu_peak_alloc_gb": 0.565310001373291,
+ "smi_peak_mib": 7541,
+ "max_relative_delta": 0.000911470502614975,
+ "out_dtype": "bf16",
+ "delta_lost_to_rounding_share": 0.8703546025813048,
+ "delta_relative_rounding_error": 0.8614370753650458
+}

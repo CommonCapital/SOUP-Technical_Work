@@ -1,0 +1,12 @@
+{
+  "model": "Qwen/Qwen3-4B",
+  "adapter": "/kaggle/working/soup-grpo/runs/main/ckpt/step_00040",
+  "n": 100,
+  "accuracy": 0.92,
+  "tag_accuracy": 0.64,
+  "tag_rate": 0.69,
+  "truncated_share": 0.02,
+  "len_mean": 276.13,
+  "seconds": 825.9147798449994,
+  "time": "2026-11-26T02:47:26"
+}
