@@ -1,0 +1,49 @@
+{
+  "model": "Qwen/Qwen3-4B",
+  "adapter": null,
+  "data": "data/heldout_n5.jsonl",
+  "n_prompts": 500,
+  "samples": 1,
+  "temperature": 0.0,
+  "max_new": 512,
+  "accuracy": 0.192,
+  "wilson95": [
+    0.15987567270959485,
+    0.22882109230544162
+  ],
+  "mixed_prompt_share": null,
+  "all_wrong_share": 0.808,
+  "all_right_share": 0.192,
+  "per_prompt_hist": {
+    "0": 404,
+    "1": 96
+  },
+  "tag_rate": 0.212,
+  "parsed_rate": 0.212,
+  "numbers_rate": 0.206,
+  "value_rate": 0.196,
+  "truncated_share": 0.788,
+  "thinking_share": 0.0,
+  "len_mean": 467.294,
+  "len_p95": 512.0,
+  "seconds": 3466.0786163500015,
+  "engine_timers_s": {
+    "load": 16.517868041992188,
+    "prefill": 30.650230843995814,
+    "decode": 3435.147518927999
+  },
+  "copies": 202752,
+  "dtype": "fp16",
+  "prompt": "v2",
+  "nonfinite_events": 0,
+  "oom_splits": 0,
+  "batch": 48,
+  "gpu": {
+    "alloc_gb": 1.2964215278625488,
+    "reserved_gb": 7.119140625,
+    "peak_alloc_gb": 7.040870666503906,
+    "peak_reserved_gb": 7.119140625
+  },
+  "smi_mib": 14191,
+  "time": "2026-11-26T02:41:20"
+}

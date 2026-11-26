@@ -1,0 +1,49 @@
+{
+  "model": "Qwen/Qwen3-4B",
+  "adapter": "/kaggle/working/soup-grpo/runs/control/ckpt/step_00040",
+  "data": "data/heldout_n5.jsonl",
+  "n_prompts": 500,
+  "samples": 1,
+  "temperature": 0.0,
+  "max_new": 512,
+  "accuracy": 0.288,
+  "wilson95": [
+    0.25004260722886124,
+    0.3291902310282418
+  ],
+  "mixed_prompt_share": null,
+  "all_wrong_share": 0.712,
+  "all_right_share": 0.288,
+  "per_prompt_hist": {
+    "0": 356,
+    "1": 144
+  },
+  "tag_rate": 0.336,
+  "parsed_rate": 0.336,
+  "numbers_rate": 0.33,
+  "value_rate": 0.294,
+  "truncated_share": 0.664,
+  "thinking_share": 0.0,
+  "len_mean": 428.51,
+  "len_p95": 512.0,
+  "seconds": 3481.831039642999,
+  "engine_timers_s": {
+    "load": 23.733344316482544,
+    "prefill": 39.40515800700268,
+    "decode": 3442.1251590229967
+  },
+  "copies": 202752,
+  "dtype": "fp16",
+  "prompt": "v2",
+  "nonfinite_events": 0,
+  "oom_splits": 0,
+  "batch": 48,
+  "gpu": {
+    "alloc_gb": 1.4194684028625488,
+    "reserved_gb": 7.2421875,
+    "peak_alloc_gb": 7.163917541503906,
+    "peak_reserved_gb": 7.2421875
+  },
+  "smi_mib": 14317,
+  "time": "2026-11-26T01:39:08"
+}

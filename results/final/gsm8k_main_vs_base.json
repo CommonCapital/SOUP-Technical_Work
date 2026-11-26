@@ -1,0 +1,82 @@
+{
+  "A": "/Users/alisultanomariv/Documents/Technical_Work/soup-grpo/results/kaggle/control/eval/gsm8k_base.jsonl",
+  "B": "/Users/alisultanomariv/Documents/Technical_Work/soup-grpo/results/kaggle/main/eval/gsm8k_main.jsonl",
+  "reward": {
+    "n": 100,
+    "a": 0.94,
+    "b": 0.92,
+    "diff": -0.02,
+    "ci95": [
+      -0.06,
+      0.02
+    ],
+    "a_only_right": 3,
+    "b_only_right": 1,
+    "mcnemar_p": 0.625,
+    "ci_excludes_0": false
+  },
+  "finished": {
+    "n": 100,
+    "a": 0.99,
+    "b": 0.98,
+    "diff": -0.01,
+    "ci95": [
+      -0.03,
+      0.0
+    ],
+    "a_only_right": 1,
+    "b_only_right": 0,
+    "mcnemar_p": 1.0,
+    "ci_excludes_0": false
+  },
+  "tag_present": {
+    "n": 100,
+    "a": 0.72,
+    "b": 0.69,
+    "diff": -0.03,
+    "ci95": [
+      -0.11,
+      0.05
+    ],
+    "a_only_right": 10,
+    "b_only_right": 7,
+    "mcnemar_p": 0.629058837890625,
+    "ci_excludes_0": false
+  },
+  "tag_correct": {
+    "n": 100,
+    "a": 0.69,
+    "b": 0.64,
+    "diff": -0.05,
+    "ci95": [
+      -0.13,
+      0.02
+    ],
+    "a_only_right": 10,
+    "b_only_right": 5,
+    "mcnemar_p": 0.3017578125,
+    "ci_excludes_0": false
+  },
+  "last_correct": {
+    "n": 100,
+    "a": 0.94,
+    "b": 0.92,
+    "diff": -0.02,
+    "ci95": [
+      -0.06,
+      0.02
+    ],
+    "a_only_right": 3,
+    "b_only_right": 1,
+    "mcnemar_p": 0.625,
+    "ci_excludes_0": false
+  },
+  "acc_finished_A": [
+    0.9494949494949495,
+    99
+  ],
+  "acc_finished_B": [
+    0.9387755102040817,
+    98
+  ]
+}

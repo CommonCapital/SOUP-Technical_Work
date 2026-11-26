@@ -1,0 +1,96 @@
+{
+  "A": "/Users/alisultanomariv/Documents/Technical_Work/soup-grpo/results/kaggle/main/eval/main.jsonl",
+  "B": "/Users/alisultanomariv/Documents/Technical_Work/soup-grpo/results/kaggle/main/eval/merged_main.jsonl",
+  "reward": {
+    "n": 500,
+    "a": 0.248,
+    "b": 0.262,
+    "diff": 0.014,
+    "ci95": [
+      -0.028,
+      0.056
+    ],
+    "a_only_right": 55,
+    "b_only_right": 62,
+    "mcnemar_p": 0.579290250187703,
+    "ci_excludes_0": false
+  },
+  "finished": {
+    "n": 500,
+    "a": 0.296,
+    "b": 0.292,
+    "diff": -0.004,
+    "ci95": [
+      -0.048,
+      0.040049999999999274
+    ],
+    "a_only_right": 67,
+    "b_only_right": 65,
+    "mcnemar_p": 0.9306844655255777,
+    "ci_excludes_0": false
+  },
+  "tag_present": {
+    "n": 500,
+    "a": 0.296,
+    "b": 0.292,
+    "diff": -0.004,
+    "ci95": [
+      -0.048,
+      0.040049999999999274
+    ],
+    "a_only_right": 67,
+    "b_only_right": 65,
+    "mcnemar_p": 0.9306844655255777,
+    "ci_excludes_0": false
+  },
+  "parsed": {
+    "n": 500,
+    "a": 0.296,
+    "b": 0.292,
+    "diff": -0.004,
+    "ci95": [
+      -0.048,
+      0.040049999999999274
+    ],
+    "a_only_right": 67,
+    "b_only_right": 65,
+    "mcnemar_p": 0.9306844655255777,
+    "ci_excludes_0": false
+  },
+  "numbers_correct": {
+    "n": 500,
+    "a": 0.278,
+    "b": 0.282,
+    "diff": 0.004,
+    "ci95": [
+      -0.04,
+      0.048
+    ],
+    "a_only_right": 62,
+    "b_only_right": 64,
+    "mcnemar_p": 0.9290596866317957,
+    "ci_excludes_0": false
+  },
+  "value_correct": {
+    "n": 500,
+    "a": 0.258,
+    "b": 0.27,
+    "diff": 0.012,
+    "ci95": [
+      -0.032,
+      0.054
+    ],
+    "a_only_right": 57,
+    "b_only_right": 63,
+    "mcnemar_p": 0.6482600518210058,
+    "ci_excludes_0": false
+  },
+  "acc_finished_A": [
+    0.8378378378378378,
+    148
+  ],
+  "acc_finished_B": [
+    0.8972602739726028,
+    146
+  ]
+}

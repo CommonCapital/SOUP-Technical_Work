@@ -1,0 +1,13 @@
+
+Fetching 10 files:   0%|          | 0/10 [00:00<?, ?it/s]
+Fetching 10 files: 100%|██████████| 10/10 [00:00<00:00, 1205.12it/s]
+{
+ "adapter": "/kaggle/working/soup-grpo/runs/control/ckpt/step_00040",
+ "eval_jsonl": "/kaggle/working/soup-grpo/results/eval/control.jsonl",
+ "n_answers": 200,
+ "n_tokens": 88350,
+ "kl_per_token": 0.02850747618927548,
+ "kl_per_answer": 12.593173696994782,
+ "logratio_written_tokens": 0.0445073371461103,
+ "seconds": 209.66134328399858
+}

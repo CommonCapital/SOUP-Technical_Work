@@ -1,0 +1,15 @@
+
+Fetching 10 files:   0%|          | 0/10 [00:00<?, ?it/s]
+Fetching 10 files: 100%|██████████| 10/10 [00:00<00:00, 1109.13it/s]
+{
+ "model": "Qwen/Qwen3-4B",
+ "adapter": null,
+ "n": 100,
+ "accuracy": 0.94,
+ "tag_accuracy": 0.69,
+ "tag_rate": 0.72,
+ "truncated_share": 0.01,
+ "len_mean": 272.74,
+ "seconds": 827.2633743330007,
+ "time": "2026-11-26T02:55:35"
+}

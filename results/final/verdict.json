@@ -1,0 +1,63 @@
+{
+  "verdict": "DON'T SHIP",
+  "rule": {
+    "1_H8_main_beats_base": true,
+    "2_H26_main_beats_control": false,
+    "3a_H9_acc_finished_not_lower_by_3pts": false,
+    "3b_H9_value_correct_rises": true,
+    "3c_H9_independent_checker_ge_99pct": true,
+    "4_H10_gsm8k_no_significant_drop": true,
+    "5_validity_cap_held": true,
+    "5_validity_no_nonfinite": true,
+    "5_validity_40_steps_each": true
+  },
+  "extra": {
+    "H28_kl_main_gt_control": true,
+    "kl_per_token": {
+      "main": 0.06509180563586696,
+      "control": 0.02850747618927548
+    },
+    "control_vs_base_significant": true,
+    "independent_checker_agreement": {
+      "base": 1.0,
+      "main": 1.0,
+      "control": 1.0,
+      "merged": 1.0
+    },
+    "cap_our_peak_mib": {
+      "main": 8158,
+      "control": 8158
+    },
+    "nonfinite_total": 0,
+    "train_reward_first10_last10": {
+      "main": [
+        0.23124999999999996,
+        0.3166666666666667
+      ],
+      "control": [
+        0.2270833333333333,
+        0.3145833333333333
+      ]
+    },
+    "train_trunc_first10_last10": {
+      "main": [
+        0.6770833333333334,
+        0.6499999999999999
+      ],
+      "control": [
+        0.6145833333333334,
+        0.5708333333333334
+      ]
+    },
+    "train_len_first10_last10": {
+      "main": [
+        433.9395833333334,
+        443.2458333333334
+      ],
+      "control": [
+        403.11041666666665,
+        400.2
+      ]
+    }
+  }
+}
