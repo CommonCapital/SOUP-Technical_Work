@@ -168,7 +168,7 @@ H20, H24 (n5 23.5%), H25 (on average 46% of groups had zero advantage; single st
 the truncation part of H31, the n4 part of H32 (56.2 vs ≤ 55), H3 (decode compute is about
 5.5 ms per layer, not 1–2; in training the copies are not on the critical path), **H6**
 (DFlash 0.98× on a real step). Still open: H7, H21/H22 with the adapter, H23 at batch 48
-(follow-up notebook is ready), H16 (estimated at 3–5% from copy counts, not profiled).
+(not run: I ran out of GPU time; the notebook is `kaggle/soup_dflash2.ipynb`), H16 (estimated at 3–5% from copy counts, not profiled).
 
 ## 7. What surprised me, what still worries me
 
