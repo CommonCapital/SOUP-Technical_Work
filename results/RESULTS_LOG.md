@@ -166,3 +166,14 @@ for the follow-up notebook `soup_dflash2`.
 | E20 | H23 speedup vs batch | x(8) > x(16) > x(32); 48 OOM-splits | T = 1, 512 tokens: **x3.42 (B 8) > x3.09 (B 16) > x1.71 (B 32)**; DFlash tok/s 45.5 / 72.8 / 78.7; acceptance 5.03 / 4.52 / 4.54. Batch 48: **crashed in the plain arm** (E19) | 8–32 yes | **confirmed** for 8/16/32; 48: not tested yet | E19 below; plain arm also ran with the drafter on the GPU (fixed: drafter moved to CPU for the plain arm) | `dflash_sweep.txt` |
 | E20 | H6 real GRPO step | original: step ↓ ≥ 2×; updated: generation ↓ 1.2–1.8×, step ↓ 1.2–1.7×, H6 likely rejected | A-B-B-A, same seed/prompts: plain (gen batch 48) step **421.4 s**, generation 320.1 s; DFlash (2 × 24) step **431.7 s**, generation 331.0 s → **0.98× (2.4% slower)**. Passes 512 → 323 (≈ 161 per batch: ↓ 3.2×, inside 2.5–3.5); acceptance 4.61; verify 260 s (79% of generation, 0.80 s per pass vs 0.625 s plain), draft 45 s, accept 20 s | yes (repeats within 1.6 s) | **H6 rejected**; the updated expectation was also too optimistic (generation 0.97×, not 1.2–1.8×) | under the cap the drafter (1.06 GiB + cache) halves the batch. Plain L2L decode is copy-bound, so its throughput grows almost linearly with batch (B 48 ≈ 1.5× B 32), while a 16-token verify pass is no longer free (compute shows through: 0.80 vs 0.60 s). DFlash at B 24 ≈ plain at B 48. DFlash pays only when the batch is small (×3.4 at B 8) | `h6_steps.json`, `h6_*.txt` |
 
+
+## E21 — follow-up notebook stopped: adapters not found (2026-11-27, soup_dflash2, git c9823b8)
+
+The new guard cell stopped the run after ~3 minutes (tests 77/77, CUDA equivalence PASS):
+"adapter(s) not attached: ['main', 'control']". Either the inputs were not added, or my search
+could not see them: `Path.glob("**")` does not follow symbolic links (checked locally: a
+symlinked input folder is invisible to it), and Kaggle input folders can be symlinks. The same
+search ran in the first DFlash run, so its "adapters found: none" may have the same cause. Fix:
+walk `/kaggle/input` with `os.walk(followlinks=True)` and print the files found, so a second miss
+shows exactly what Kaggle mounted. No GPU results lost (the guard stopped before any).
+Raw files: `results/kaggle/dflash2_try1/logs/`.

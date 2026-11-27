@@ -137,12 +137,17 @@ else:
 print("drafter at", DRAFTER, [p.name for p in DRAFTER.iterdir()])
 ADAPTERS = {}
 inp = Path("/kaggle/input")
+# os.walk with followlinks: Kaggle input folders can be symlinks, and Path.glob("**") skips those
+ALL = sorted(Path(r) / f for r, _, fs in os.walk(inp, followlinks=True) for f in fs) if inp.exists() else []
+print("files under /kaggle/input:", len(ALL))
+for f in ALL[:40]:
+    print("  ", f)
 for name in ("main", "control"):
-    hits = sorted(inp.glob(f"**/adapters/{name}/adapter_config.json")) if inp.exists() else []
+    hits = [f for f in ALL if f.name == "adapter_config.json" and f.parent.name == name]
     if hits:
         ADAPTERS[name] = hits[-1].parent
         continue
-    for z in (sorted(inp.glob("**/soup_results.zip")) if inp.exists() else []):
+    for z in [f for f in ALL if f.suffix == ".zip"]:
         with zipfile.ZipFile(z) as zf:
             members = [m for m in zf.namelist() if m.startswith(f"adapters/{name}/")]
             if members and f"adapters/{name}/adapter_config.json" in members:

@@ -1,0 +1,9 @@
+{
+  "smi_peak_total_mib": 7081,
+  "smi_before_us_mib": 6731,
+  "ballast_used_mib": 6624,
+  "our_peak_mib": 350,
+  "cap_mib": 8192,
+  "under_cap": true,
+  "samples": 220
+}

@@ -1,0 +1,1 @@
+AssertionError: adapter(s) not attached: ['main', 'control']. Add Input -> Your Work -> soup_train_main / soup_train_control
