@@ -1,0 +1,7 @@
+{
+ "modules": 252,
+ "dW_rel_error_overall": 0.0003040396437329304,
+ "dW_rel_error_worst_module": 0.00031288093510096446,
+ "bytes_fp32": 132187856,
+ "bytes_fp16": 66127240
+}

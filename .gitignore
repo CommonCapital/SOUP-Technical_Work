@@ -13,3 +13,14 @@ kaggle/push/
 kaggle/out/
 .DS_Store
 kaggle/*_cells.py
+
+# training logs from the Kaggle runs ARE part of the results (metrics, samples, ids per step)
+!results/kaggle/*/runs/
+results/kaggle/**/.lock
+# full-precision adapters stay local (132 MB each); the shipped copy is model/ (fp16, 66 MB)
+!model/**/*.safetensors
+
+# private / internal, not part of the submission
+report/discussion_notes.md
+report/report.html
+GPU_RUNBOOK.md

@@ -13,7 +13,9 @@ streaming engine. **Verdict: DON'T SHIP** (`report/report.pdf`).
 | Raw logs, incl. per-second nvidia-smi and host RAM for every GPU session | `results/kaggle/{pilot1,pilot2,dryrun1,dryrun2,main,control,dflash}/logs/` |
 | Pre-registered predictions and rules (git-timestamped) | `predictions/PREDICTIONS.md` |
 | Experiment log (every failure kept) | `results/RESULTS_LOG.md` (E00–E20) |
-| Trained adapters (PEFT format) | `results/kaggle/main/adapters/main/`, `results/kaggle/control/adapters/control/` (kept locally, not in git: 126 MB each) |
+| **Trained model** (main LoRA adapter, PEFT format, fp16) | `model/countdown-lora-main/` (how to load it, and the fp16 check: ΔW changes by 0.03%) |
+| **Example answers**, base vs main vs control | `results/EXAMPLES.md` (picked by a fixed rule; all 500 answers per model in `results/kaggle/*/eval/`) |
+| Training logs per step (reward, loss, KL, timing, every sampled answer) | `results/kaggle/{main,control}/runs/*/metrics.jsonl`, `samples.jsonl` |
 | Kaggle notebooks (self-contained, code + data embedded) | `kaggle/*.ipynb`, built by `kaggle/build_notebook.py` (`SOUP_STAGE=...`) |
 
 ## Layout
