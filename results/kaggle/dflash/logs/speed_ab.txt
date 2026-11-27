@@ -1,0 +1,9 @@
+
+Fetching 10 files:   0%|          | 0/10 [00:00<?, ?it/s]
+Fetching 10 files: 100%|██████████| 10/10 [00:00<00:00, 1213.95it/s]
+layer copy 16.32 ms; 36 layers 0.588 s
+H3 decode: on 0.604s off 0.785s copy 0.588s -> hidden 31%
+H3 train: on 85.622s off 85.786s copy 2.350s -> hidden 7%
+H2: R=0 B=48 79.5 tok/s (6.90 GiB) vs R=8 B=32 63.9 tok/s (6.58 GiB); identical tokens False
+H5: fixed 85.63s vs per-phase 86.20s (saving -0.57s per step; peak 6.45 GiB)
+log: /kaggle/working/soup-grpo/results/logs/speed_ab_20261126-173227.json

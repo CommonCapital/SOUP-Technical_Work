@@ -20,7 +20,7 @@ import tarfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-STAGE = __import__("os").environ.get("SOUP_STAGE", "pilot1")   # pilot1 | pilot2 | dryrun | train_main | train_control | dflash
+STAGE = __import__("os").environ.get("SOUP_STAGE", "pilot1")   # pilot1 | pilot2 | dryrun | train_main | train_control | dflash | dflash2
 INCLUDE = ["src", "scripts", "tests", "data", "predictions", "pyproject.toml", "README.md", "GPU_RUNBOOK.md"]
 
 
@@ -206,6 +206,51 @@ for arm in "AB":
     if H6[arm]:
         print(arm, "step", np.mean([x["time_s"]["total"] for x in H6[arm]]), "s, generate",
               np.mean([x["time_s"]["generate"] for x in H6[arm]]), "s")
+''']
+
+MD_INTRO_DFLASH2 = """# Soup GRPO task: step 5, DFlash follow-up with the trained adapters (Kaggle T4)
+
+The first DFlash run (soup_dflash) had no adapters attached, so it ran on the base model only.
+This run does the parts that need them, plus the batch-48 sweep that crashed (bug E19, fixed).
+
+**Before running:**
+1. Settings: **Accelerator: GPU T4 x2** and **Internet: On**.
+2. **Add Input -> Your Work -> Notebooks:** add **soup_train_main** AND **soup_train_control**.
+   Required: cell 8 stops the run at once if either adapter is missing (so no GPU time is wasted).
+3. **Save Version -> Save & Run All (Commit)**, close the tab. Takes about **1.5 hours**. When it shows Complete,
+   open its **Output** tab and download **`soup_results.zip`**.
+
+Pre-registered in `predictions/PREDICTIONS.md`, "Speed A/B and DFlash" (unchanged).
+7. Download the DFlash drafter and find the adapters. 8. Stop if an adapter is missing.
+9. **H21 + H7:** greedy, 96 held-out puzzles: main adapter (with the plain run), control adapter.
+10. **H23, batch 48 only** (8 / 16 / 32 were measured in soup_dflash).
+11. **H22 with the main adapter** (soup_dflash ran it on the base model).
+"""
+
+DFLASH2_CELLS = [None, '''
+# 8. Both adapters are required here
+missing = [n for n in ("main", "control") if n not in ADAPTERS]
+assert LOCAL_TEST or not missing, f"adapter(s) not attached: {missing}. Add Input -> Your Work -> soup_train_main / soup_train_control"
+''', '''
+# 9. H21 greedy identity (main adapter + plain run in this session), H7 acceptance (control)
+DB = [PY, "scripts/gpu/dflash_bench.py"]
+SM = ["--model", MODEL, "--drafter", DRAFTER, *(["--dtype", "fp32"] if LOCAL_TEST else [])]
+N = ["--n", "4", "--batch", "2", "--max-new", "24"] if LOCAL_TEST else ["--n", "96", "--batch", "32", "--max-new", "512"]
+for tag, plain in (("main", True), ("control", False)):
+    if tag not in ADAPTERS:
+        print("skip", tag, "(local test without adapters)")
+        continue
+    run([*DB, "greedy", *SM, "--adapter", ADAPTERS[tag], *N, *(["--plain"] if plain else []),
+         "--ref", f"data/ref_greedy/{tag}.jsonl", "--tag", tag], log=f"dflash_greedy_{tag}.txt", check=False)
+''', '''
+# 10. H23 batch 48 (plain arm runs with the drafter moved off the GPU)
+B = ["--batches", "4", "--max-new", "16"] if LOCAL_TEST else ["--batches", "48", "--max-new", "512"]
+run([*DB, "sweep", *SM, *B, "--tag", "base48"], log="dflash_sweep48.txt", check=False)
+''', '''
+# 11. H22 sampling test with the main adapter
+ad = ["--adapter", ADAPTERS["main"]] if "main" in ADAPTERS else []
+S = ["--samples", "60", "--batch", "30", "--dbatch", "30"] if LOCAL_TEST else ["--samples", "2000", "--batch", "48", "--dbatch", "32"]
+run([*DB, "sampling", *SM, *ad, *S, "--tag", "main" if ad else "base_local"], log="dflash_sampling_main.txt", check=False)
 ''']
 
 CELLS: list[tuple[str, str]] = []
@@ -419,7 +464,8 @@ def build_cells(b64: str, sha: str, rev: str):
             "policy to the base model.\n9. **Held-out evaluation of the base model** (the reference for all "
             "comparisons).\n10. **GSM8K** for the base model.")))
     else:
-        md({"pilot1": MD_INTRO, "pilot2": MD_INTRO_PILOT2, "dryrun": MD_INTRO_DRYRUN, "dflash": MD_INTRO_DFLASH}[STAGE])
+        md({"pilot1": MD_INTRO, "pilot2": MD_INTRO_PILOT2, "dryrun": MD_INTRO_DRYRUN, "dflash": MD_INTRO_DFLASH,
+            "dflash2": MD_INTRO_DFLASH2}[STAGE])
     code(f'''
 # 1. Unpack code + data (git {rev}, bundle sha256 {sha[:16]})
 import base64, hashlib, io, json, os, subprocess, sys, tarfile, time
@@ -541,6 +587,9 @@ if os.environ.get("SOUP_FORCE_FAIL") == "fp16":   # local test of the failure pa
             guarded(cell)
     elif STAGE == "dflash":
         for cell in DFLASH_CELLS:
+            guarded(cell)
+    elif STAGE == "dflash2":
+        for cell in [DFLASH_CELLS[1], *DFLASH2_CELLS[1:]]:
             guarded(cell)
     elif STAGE in ("train_main", "train_control"):
         name = STAGE.split("_")[1]

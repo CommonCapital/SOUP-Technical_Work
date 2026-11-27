@@ -76,6 +76,16 @@ class Drafter:
         self.block_size, self.mask_token_id = block_size, mask_token_id
         self.max_abs_weight = max(float(v.abs().max()) for w in layers for v in w.values())
 
+    def to(self, device) -> "Drafter":
+        """Move all drafter weights (benchmarks: keep the GPU free for the plain arm)."""
+        dev = torch.device(device)
+        self.layers = [{k: v.to(dev) for k, v in w.items()} for w in self.layers]
+        self.fc_blocks = {k: v.to(dev) for k, v in self.fc_blocks.items()}
+        self.hidden_norm, self.norm, self.device = self.hidden_norm.to(dev), self.norm.to(dev), dev
+        if dev.type != "cuda" and torch.cuda.is_available():
+            torch.cuda.empty_cache()
+        return self
+
     # -------- loading
     @classmethod
     def load(cls, path: str | Path, device, dtype=torch.float16) -> "Drafter":
@@ -250,16 +260,18 @@ class DFlashGenerator:
         return outs
 
     def _safe(self, prompts, *args):
-        """Same OOM policy as the plain engine: split the batch in two, count it."""
+        """Same OOM policy as the plain engine: split the batch in two, count it.
+        The retry runs after the except block, so the failed attempt is freed (E19)."""
         try:
             return self._batch(prompts, *args)
         except torch.OutOfMemoryError:
             if len(prompts) == 1:
                 raise
-            self.oom_splits = getattr(self, "oom_splits", 0) + 1
+        self.oom_splits = getattr(self, "oom_splits", 0) + 1
+        if torch.cuda.is_available():
             torch.cuda.empty_cache()
-            h = len(prompts) // 2
-            return self._safe(prompts[:h], *args) + self._safe(prompts[h:], *args)
+        h = len(prompts) // 2
+        return self._safe(prompts[:h], *args) + self._safe(prompts[h:], *args)
 
     def _target_pass(self, x, cos, sin, mask, kv, kv_pos, lora_enabled, feat_acc):
         e = self.eng

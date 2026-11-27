@@ -133,3 +133,36 @@ depends on what memory `torch.empty` hands out, hence intermittent. In greedy mo
 been **silent** (argmax of NaN logits = token 0, no crash). Fix: KV cache zero-initialised.
 Regression test fills every `torch.empty` with NaN and makes rows drift apart (fails before the
 fix, passes after). The plain engine is not affected (it never reads past what it wrote).
+
+## E19 — the OOM fallback could never recover (found in the Kaggle sweep, 2026-11-26)
+
+H23 sweep, batch 48: the plain arm ran out of memory (the drafter was still on the GPU, so 48
+rows did not fit). The fallback splits the batch in two and retries, but every retry also ran
+out, down to batch 1 ("Tried to allocate 88 MiB … 7.73 GiB allocated"). Cause: the retry was
+called **inside** the `except` block. While it runs, the live exception's traceback keeps the
+failed attempt's frame alive, and with it that attempt's KV cache (4.1 GiB at batch 48); each
+split level stacked another failed attempt on top. Same pattern in `DFlashGenerator._safe`.
+Fix: leave the `except` block first, then empty the cache and split. Regression test
+`test_oom_split_frees_failed_attempt[plain|dflash]` fakes an OOM after allocating a stand-in
+"KV cache" and asserts it is freed before each retry (fails before the fix, passes after).
+**Earlier results are unaffected:** no saved run ever reported an OOM split.
+
+## Kaggle speed A/B + DFlash run (2026-11-26, notebook soup_dflash, git 5e85e72)
+
+Raw files: `results/kaggle/dflash/logs/`. One T4 session, 8 GB cap held (our peak 8,178 MiB),
+tests 75/75, CUDA equivalence PASS, STOP none. **The adapters were not attached** ("adapters
+found: none"), so everything DFlash ran on the base model only; the main/control parts wait
+for the follow-up notebook `soup_dflash2`.
+
+| ID | Hypothesis | Prediction | Real result | Valid? | Verdict | If bad: cause → action | Log |
+|---|---|---|---|---|---|---|---|
+| E20 | H3 prefetch | train: hides > 80% of copy time; decode: < 20%, and decode pass with prefetch within 10% of t_copy | t_copy 16.3 ms/layer, 0.588 s per pass. **Decode** (B 48, KV 712): on 0.604 s, off 0.785 s (all 8 runs within 1 ms) → hidden share **31%**; pass with prefetch = t_copy + 2.7%. **Train** phase (2 × 24 seqs + Adam): on 85.62 s, off 85.79 s, copies 2.35 s → hidden share **7%** | yes (A-B-B-A ×2, spread ≤ 0.3 s) | decode < 20%: **rejected** (31%); decode ≈ t_copy: **confirmed**; train > 80%: **rejected** (7%) | decode: I assumed 1–2 ms compute per layer; real ≈ 5.5 ms (B 48 with 712-token attention + LoRA), and prefetch hides all of it behind the copy, so decode runs at the PCIe floor. Train: copies are only 2.7% of the phase, and turning prefetch off adds only 0.16 s, not 2.35 s. The off-arm copies sit on the compute stream, so they can only be free if that stream has ≥ 2.35 s of idle time: best reading, the training phase is host-bound (≈ 1e15 FLOP in 85.6 s ≈ 11 TFLOP/s, well under T4 fp16 matmul speed; per-chunk `.cpu()` syncs in the head loop). **Not profiled** → profile before claiming either way | `speed_ab_20261126-173227.json` |
+| E20 | H2 equal memory | R 0 + B 48 beats R 8 + B 32 by 1.10–1.25× (model 1.17); greedy tokens of the 32 shared prompts identical | **79.5 vs 63.9 tok/s = 1.24×** (peak 6.90 vs 6.58 GiB); pass 0.604 vs 0.501 s (model 0.47 s). Tokens identical: **False** | throughput yes; identity check failed | **ratio confirmed**; identity sub-check **failed** | the two arms use different batch sizes (48 vs 32), so fp16 matmul shapes differ: the same kind of near-tie flip as in H21 is the likely cause, but speed_ab did not check gaps, so **unverified**. Decode cost does not depend on token values (64 tokens, no stops), so the throughput result stands | same |
+| E20 | H5 per-phase placement | saves < 1% of a step; does not pay | fixed 85.63 s vs per-phase 86.20 s (load 0.29 s + free 0.19 s per step): **−0.57 s** | yes | **confirmed** (does not pay) | the reason differs from the prediction: not "prefetch hides training copies" but "training copies are not on the critical path at all" (H3) | same |
+| E20 | D0 drafter sanity | base greedy mean committed tokens per pass ≥ 3 | **5.74** (96 prompts, batch 32; 16/16 accepted in 7.7% of row-passes); paper τ ≈ 6.5 on math | yes | **confirmed**: the re-implementation works; DFlash results are valid | — | `dflash_greedy_base*.json` |
+| E20 | H21 greedy identity | main adapter, same-session plain run: ≥ 90% identical, every divergence at a top-2 gap < 0.05 | **main: not run (adapter missing).** Base, same session, batch 32: **82/96 (85.4%) identical**; all 14 divergences at gaps ≤ 0.031 (7 exact ties in fp16, the rest one fp16 step at that logit size). vs the saved evaluation (other session): 78/96, 18/18 near-ties. Greedy wall time: plain 936 s vs DFlash 352 s = **2.66×** (passes 1,536 → 322) | yes | as registered: **not tested yet**. On base: bug rule **passes** (no divergence at a clear gap), ≥ 90% share **fails** (85%) | the 90% was a guess at how often a 512-token answer meets an fp16 tie; 15% of answers do. Not a bug signal (the bug rule was the part meant to catch bugs) | same |
+| E20 | H7 acceptance vs policy shift | base > control > main | base 5.74; control, main: not run | — | **not tested yet** | follow-up | — |
+| E20 | H22 sampling exactness | main adapter, chi-square per position 1–15, all p > 0.05/15; biased rule min p < 0.05/15 | **base** (adapter missing): exact rule min p **0.244** (all 15 > 0.0033); accept-all min p **0** → test has power. Acceptance at T = 1: 3.60 | yes, for the base policy | **confirmed on base**; main: not tested yet | — | `dflash_sampling_base.json` |
+| E20 | H23 speedup vs batch | x(8) > x(16) > x(32); 48 OOM-splits | T = 1, 512 tokens: **x3.42 (B 8) > x3.09 (B 16) > x1.71 (B 32)**; DFlash tok/s 45.5 / 72.8 / 78.7; acceptance 5.03 / 4.52 / 4.54. Batch 48: **crashed in the plain arm** (E19) | 8–32 yes | **confirmed** for 8/16/32; 48: not tested yet | E19 below; plain arm also ran with the drafter on the GPU (fixed: drafter moved to CPU for the plain arm) | `dflash_sweep.txt` |
+| E20 | H6 real GRPO step | original: step ↓ ≥ 2×; updated: generation ↓ 1.2–1.8×, step ↓ 1.2–1.7×, H6 likely rejected | A-B-B-A, same seed/prompts: plain (gen batch 48) step **421.4 s**, generation 320.1 s; DFlash (2 × 24) step **431.7 s**, generation 331.0 s → **0.98× (2.4% slower)**. Passes 512 → 323 (≈ 161 per batch: ↓ 3.2×, inside 2.5–3.5); acceptance 4.61; verify 260 s (79% of generation, 0.80 s per pass vs 0.625 s plain), draft 45 s, accept 20 s | yes (repeats within 1.6 s) | **H6 rejected**; the updated expectation was also too optimistic (generation 0.97×, not 1.2–1.8×) | under the cap the drafter (1.06 GiB + cache) halves the batch. Plain L2L decode is copy-bound, so its throughput grows almost linearly with batch (B 48 ≈ 1.5× B 32), while a 16-token verify pass is no longer free (compute shows through: 0.80 vs 0.60 s). DFlash at B 24 ≈ plain at B 48. DFlash pays only when the batch is small (×3.4 at B 8) | `h6_steps.json`, `h6_*.txt` |
+

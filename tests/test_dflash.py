@@ -164,3 +164,33 @@ def test_unwritten_kv_slots_cannot_leak(setup, monkeypatch):
     out = g.generate(prompts, 20, 0.0, (), 0, len(prompts), draft_fn=mixed)
     assert [o.tokens for o in out] == ref
     assert min(g.stats.accept_lens) == 1 and max(g.stats.accept_lens) == 5
+
+
+@pytest.mark.parametrize("which", ["plain", "dflash"])
+def test_oom_split_frees_failed_attempt(setup, monkeypatch, which):
+    """Regression E19 (Kaggle sweep, batch 48): when a batch runs out of memory,
+    the half-size retries must not run while the failed attempt's tensors (its
+    KV cache) are still alive. Fake an OOM after the 'KV cache' is allocated and
+    check, at the start of each retry, that the failed attempts' caches are gone."""
+    import gc
+    import weakref
+    from soupgrpo.dflash import DFlashGenerator
+    eng, dr, prompts = setup
+    obj = eng if which == "plain" else DFlashGenerator(eng, dr)
+    name = "_generate_batch" if which == "plain" else "_batch"
+    real = getattr(obj, name)
+    failed = []
+
+    def fake(ps, *a):
+        gc.collect()
+        alive = [r for r in failed if r() is not None]
+        assert not alive, f"{len(alive)} failed attempt(s) still hold their KV cache during a retry"
+        if len(ps) > 2:
+            kv = torch.zeros(1000)          # stands in for the failed batch's KV cache
+            failed.append(weakref.ref(kv))
+            raise torch.OutOfMemoryError("fake")
+        return real(ps, *a)
+    monkeypatch.setattr(obj, name, fake)
+    out = obj.generate(prompts[:8], 4, 0.0, stop_ids=(), pad_id=0, batch_size=8)
+    assert len(out) == 8 and obj.oom_splits == 3
+    assert len(failed) == 3                  # 8 -> 4+4 -> each 4 -> 2+2

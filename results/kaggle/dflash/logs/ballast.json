@@ -1,0 +1,10 @@
+{
+  "cap_mib": 8192,
+  "total_mib": 14911,
+  "free_left_mib": 8180,
+  "ballast_used_mib": 6624,
+  "smi_used_before_mib": 107,
+  "smi_used_after_mib": 6731,
+  "pid": 79,
+  "time": "2026-11-26T16:55:06"
+}

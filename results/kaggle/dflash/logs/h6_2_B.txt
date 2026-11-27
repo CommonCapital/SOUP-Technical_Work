@@ -1,0 +1,8 @@
+
+Fetching 10 files:   0%|          | 0/10 [00:00<?, ?it/s]
+Fetching 10 files: 100%|██████████| 10/10 [00:00<00:00, 1229.71it/s]
+DFlash drafter resident: 1.06 GiB
+LoRA trainable params: 33,030,144  (r=16, alpha=32.0, scale=2.0)
+boundary store: 5.14 GiB host memory (24 seqs x 624 tokens), host RSS 18.7 GB
+step   0 reward 0.208 value 0.208 tag 0.229 zero-adv 0.17 trained 40/48 len 469 trunc 0.77 gnorm 0.0755 dnorm 0.04769 lr 1e-05 t 432.5s (gen 331.6 train 100.0)
+done

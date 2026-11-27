@@ -1,0 +1,8 @@
+
+Fetching 10 files:   0%|          | 0/10 [00:00<?, ?it/s]
+Fetching 10 files: 100%|██████████| 10/10 [00:00<00:00, 1170.81it/s]
+drafter: {'drafter_gib': 1.0620665550231934, 'drafter_max_abs_weight': 4.125, 'target_layer_ids': [1, 9, 17, 25, 33], 'block': 16, 'mask_token_id': 151669, 'device': 'Tesla T4'}
+vs plain_here: identical 82/96; divergences at near-ties 14/14
+DFlash: {"passes": 322, "mean_accept_len": 5.737284894837476, "timers": {"prefill": 7.238592301000153, "draft": 48.628899797001395, "verify": 282.59500075099504, "accept": 13.664366585003336}, "seconds": 352.22772062600006, "peak_gib": 6.84409761428833, "oom_splits": 0, "tokens": 45105}
+plain 936s vs DFlash 352s -> x2.66
+log: /kaggle/working/soup-grpo/results/logs/dflash_greedy_base_plain.json

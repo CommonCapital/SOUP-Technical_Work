@@ -1,0 +1,19 @@
+{
+ "smi_mib_before_init": 6731,
+ "smi_mib_after_init_matmul": 6881,
+ "context_plus_workspace_gib": 0.146484375,
+ "pinned_is_pinned": true,
+ "pinned_GBps_median": 12.359143131900646,
+ "pinned_GBps_min_max": [
+  12.346826496866317,
+  12.367847620186513
+ ],
+ "pageable_is_pinned": false,
+ "pageable_GBps_median": 7.00410677187149,
+ "pageable_GBps_min_max": [
+  6.554893536849567,
+  7.075262709761121
+ ],
+ "predicted_decode_pass_s": 0.587419364151625,
+ "gpu": "Tesla T4"
+}

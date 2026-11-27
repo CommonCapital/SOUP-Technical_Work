@@ -1,0 +1,117 @@
+
+Fetching 10 files:   0%|          | 0/10 [00:00<?, ?it/s]
+Fetching 10 files: 100%|██████████| 10/10 [00:00<00:00, 1136.70it/s]
+drafter: {'drafter_gib': 1.0620665550231934, 'drafter_max_abs_weight': 4.125, 'target_layer_ids': [1, 9, 17, 25, 33], 'block': 16, 'mask_token_id': 151669, 'device': 'Tesla T4'}
+B=8: plain 13.3 tok/s, DFlash 45.5 tok/s (x3.42), accept 5.03, passes 119, peak 3.52 GiB
+B=16: plain 23.6 tok/s, DFlash 72.8 tok/s (x3.09), accept 4.52, passes 148, peak 4.60 GiB
+B=32: plain 45.9 tok/s, DFlash 78.7 tok/s (x1.71), accept 4.54, passes 154, peak 6.84 GiB
+Traceback (most recent call last):
+  File "/kaggle/working/soup-grpo/src/soupgrpo/l2l.py", line 280, in _generate_safe
+    return self._generate_batch(prompts, *args)
+           ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^
+  File "/kaggle/working/soup-grpo/src/soupgrpo/l2l.py", line 347, in _generate_batch
+    x = decoder_layer(x, w, d, cos, sin, mask, self._lora(li, lora_enabled), self.lora_scale,
+                      KVSlot(kv[li, 0], kv[li, 1]), kp)
+  File "/kaggle/working/soup-grpo/src/soupgrpo/qwen3_math.py", line 157, in decoder_layer
+    o = F.scaled_dot_product_attention(q, k, v, attn_mask=attn_mask, scale=d.head_dim ** -0.5,
+                                       enable_gqa=d.n_heads != d.n_kv_heads)
+torch.OutOfMemoryError: CUDA out of memory. Tried to allocate 362.00 MiB. GPU 0 has a total capacity of 14.56 GiB of which 364.81 MiB is free. Process 23 has 104.00 MiB memory in use. Process 79 has 6.47 GiB memory in use. Including non-PyTorch memory, this process has 7.62 GiB memory in use. Of the allocated memory 7.40 GiB is allocated by PyTorch, and 69.61 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://docs.pytorch.org/docs/stable/notes/cuda.html#optimizing-memory-usage-with-pytorch-cuda-alloc-conf)
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/kaggle/working/soup-grpo/src/soupgrpo/l2l.py", line 280, in _generate_safe
+    return self._generate_batch(prompts, *args)
+           ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^
+  File "/kaggle/working/soup-grpo/src/soupgrpo/l2l.py", line 300, in _generate_batch
+    kv = torch.empty((d.n_layers, 2, B, d.n_kv_heads, T_max, d.head_dim), dtype=self.dtype, device=dev)
+torch.OutOfMemoryError: CUDA out of memory. Tried to allocate 2.05 GiB. GPU 0 has a total capacity of 14.56 GiB of which 1.24 GiB is free. Process 23 has 104.00 MiB memory in use. Process 79 has 6.47 GiB memory in use. Including non-PyTorch memory, this process has 6.74 GiB memory in use. Of the allocated memory 6.51 GiB is allocated by PyTorch, and 74.77 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://docs.pytorch.org/docs/stable/notes/cuda.html#optimizing-memory-usage-with-pytorch-cuda-alloc-conf)
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/kaggle/working/soup-grpo/src/soupgrpo/l2l.py", line 280, in _generate_safe
+    return self._generate_batch(prompts, *args)
+           ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^
+  File "/kaggle/working/soup-grpo/src/soupgrpo/l2l.py", line 347, in _generate_batch
+    x = decoder_layer(x, w, d, cos, sin, mask, self._lora(li, lora_enabled), self.lora_scale,
+                      KVSlot(kv[li, 0], kv[li, 1]), kp)
+  File "/kaggle/working/soup-grpo/src/soupgrpo/qwen3_math.py", line 157, in decoder_layer
+    o = F.scaled_dot_product_attention(q, k, v, attn_mask=attn_mask, scale=d.head_dim ** -0.5,
+                                       enable_gqa=d.n_heads != d.n_kv_heads)
+torch.OutOfMemoryError: CUDA out of memory. Tried to allocate 66.00 MiB. GPU 0 has a total capacity of 14.56 GiB of which 64.81 MiB is free. Process 23 has 104.00 MiB memory in use. Process 79 has 6.47 GiB memory in use. Including non-PyTorch memory, this process has 7.91 GiB memory in use. Of the allocated memory 7.71 GiB is allocated by PyTorch, and 48.21 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://docs.pytorch.org/docs/stable/notes/cuda.html#optimizing-memory-usage-with-pytorch-cuda-alloc-conf)
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/kaggle/working/soup-grpo/src/soupgrpo/l2l.py", line 280, in _generate_safe
+    return self._generate_batch(prompts, *args)
+           ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^
+  File "/kaggle/working/soup-grpo/src/soupgrpo/l2l.py", line 300, in _generate_batch
+    kv = torch.empty((d.n_layers, 2, B, d.n_kv_heads, T_max, d.head_dim), dtype=self.dtype, device=dev)
+torch.OutOfMemoryError: CUDA out of memory. Tried to allocate 526.00 MiB. GPU 0 has a total capacity of 14.56 GiB of which 204.81 MiB is free. Process 23 has 104.00 MiB memory in use. Process 79 has 6.47 GiB memory in use. Including non-PyTorch memory, this process has 7.77 GiB memory in use. Of the allocated memory 7.55 GiB is allocated by PyTorch, and 70.74 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://docs.pytorch.org/docs/stable/notes/cuda.html#optimizing-memory-usage-with-pytorch-cuda-alloc-conf)
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/kaggle/working/soup-grpo/src/soupgrpo/l2l.py", line 280, in _generate_safe
+    return self._generate_batch(prompts, *args)
+           ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^
+  File "/kaggle/working/soup-grpo/src/soupgrpo/l2l.py", line 300, in _generate_batch
+    kv = torch.empty((d.n_layers, 2, B, d.n_kv_heads, T_max, d.head_dim), dtype=self.dtype, device=dev)
+torch.OutOfMemoryError: CUDA out of memory. Tried to allocate 264.00 MiB. GPU 0 has a total capacity of 14.56 GiB of which 204.81 MiB is free. Process 23 has 104.00 MiB memory in use. Process 79 has 6.47 GiB memory in use. Including non-PyTorch memory, this process has 7.77 GiB memory in use. Of the allocated memory 7.55 GiB is allocated by PyTorch, and 70.73 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://docs.pytorch.org/docs/stable/notes/cuda.html#optimizing-memory-usage-with-pytorch-cuda-alloc-conf)
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/kaggle/working/soup-grpo/src/soupgrpo/l2l.py", line 280, in _generate_safe
+    return self._generate_batch(prompts, *args)
+           ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^
+  File "/kaggle/working/soup-grpo/src/soupgrpo/l2l.py", line 347, in _generate_batch
+    x = decoder_layer(x, w, d, cos, sin, mask, self._lora(li, lora_enabled), self.lora_scale,
+                      KVSlot(kv[li, 0], kv[li, 1]), kp)
+  File "/kaggle/working/soup-grpo/src/soupgrpo/qwen3_math.py", line 157, in decoder_layer
+    o = F.scaled_dot_product_attention(q, k, v, attn_mask=attn_mask, scale=d.head_dim ** -0.5,
+                                       enable_gqa=d.n_heads != d.n_kv_heads)
+torch.OutOfMemoryError: CUDA out of memory. Tried to allocate 16.00 MiB. GPU 0 has a total capacity of 14.56 GiB of which 4.81 MiB is free. Process 23 has 104.00 MiB memory in use. Process 79 has 6.47 GiB memory in use. Including non-PyTorch memory, this process has 7.97 GiB memory in use. Of the allocated memory 7.76 GiB is allocated by PyTorch, and 55.79 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://docs.pytorch.org/docs/stable/notes/cuda.html#optimizing-memory-usage-with-pytorch-cuda-alloc-conf)
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/kaggle/working/soup-grpo/scripts/gpu/dflash_bench.py", line 221, in <module>
+    main()
+    ~~~~^^
+  File "/kaggle/working/soup-grpo/scripts/gpu/dflash_bench.py", line 217, in main
+    {"greedy": cmd_greedy, "sweep": cmd_sweep, "sampling": cmd_sampling}[a.cmd](a)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^
+  File "/kaggle/working/soup-grpo/scripts/gpu/dflash_bench.py", line 136, in cmd_sweep
+    po, ps, pp = timed(lambda: eng.generate(pids[:B], a.max_new, 1.0, stops, tok.pad_token_id, B, g.manual_seed(0)))
+                 ~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/kaggle/working/soup-grpo/scripts/gpu/dflash_bench.py", line 49, in timed
+    out = fn()
+  File "/kaggle/working/soup-grpo/scripts/gpu/dflash_bench.py", line 136, in <lambda>
+    po, ps, pp = timed(lambda: eng.generate(pids[:B], a.max_new, 1.0, stops, tok.pad_token_id, B, g.manual_seed(0)))
+                               ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.13/dist-packages/torch/utils/_contextlib.py", line 124, in decorate_context
+    return func(*args, **kwargs)
+  File "/kaggle/working/soup-grpo/src/soupgrpo/l2l.py", line 271, in generate
+    outs += self._generate_safe(prompts[s:s + batch_size], max_new_tokens, temperature,
+            ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                                stop_ids, pad_id, generator, lora_enabled)
+                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/kaggle/working/soup-grpo/src/soupgrpo/l2l.py", line 288, in _generate_safe
+    return self._generate_safe(prompts[:h], *args) + self._generate_safe(prompts[h:], *args)
+           ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^
+  File "/kaggle/working/soup-grpo/src/soupgrpo/l2l.py", line 288, in _generate_safe
+    return self._generate_safe(prompts[:h], *args) + self._generate_safe(prompts[h:], *args)
+           ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^
+  File "/kaggle/working/soup-grpo/src/soupgrpo/l2l.py", line 288, in _generate_safe
+    return self._generate_safe(prompts[:h], *args) + self._generate_safe(prompts[h:], *args)
+           ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^
+  [Previous line repeated 3 more times]
+  File "/kaggle/working/soup-grpo/src/soupgrpo/l2l.py", line 280, in _generate_safe
+    return self._generate_batch(prompts, *args)
+           ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^
+  File "/kaggle/working/soup-grpo/src/soupgrpo/l2l.py", line 300, in _generate_batch
+    kv = torch.empty((d.n_layers, 2, B, d.n_kv_heads, T_max, d.head_dim), dtype=self.dtype, device=dev)
+torch.OutOfMemoryError: CUDA out of memory. Tried to allocate 88.00 MiB. GPU 0 has a total capacity of 14.56 GiB of which 24.81 MiB is free. Process 23 has 104.00 MiB memory in use. Process 79 has 6.47 GiB memory in use. Including non-PyTorch memory, this process has 7.95 GiB memory in use. Of the allocated memory 7.73 GiB is allocated by PyTorch, and 73.67 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://docs.pytorch.org/docs/stable/notes/cuda.html#optimizing-memory-usage-with-pytorch-cuda-alloc-conf)

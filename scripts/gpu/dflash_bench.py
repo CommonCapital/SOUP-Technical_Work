@@ -133,7 +133,11 @@ def cmd_sweep(a):
         g = torch.Generator(device=DEV)
         r = {}
         eng.timers.clear()
+        dr.to("cpu")             # E19: the plain arm gets the whole budget (drafter off the GPU)
+        eng.oom_splits = 0
         po, ps, pp = timed(lambda: eng.generate(pids[:B], a.max_new, 1.0, stops, tok.pad_token_id, B, g.manual_seed(0)))
+        plain_splits = eng.oom_splits
+        dr.to(DEV)
         spec = DFlashGenerator(eng, dr)
         try:
             so, ss, sp = timed(lambda: spec.generate(pids[:B], a.max_new, 1.0, stops, tok.pad_token_id, B,
@@ -144,7 +148,7 @@ def cmd_sweep(a):
             print(f"B={B}: DFlash OOM", flush=True)
             continue
         pt, st = sum(len(o.tokens) for o in po), sum(len(o.tokens) for o in so)
-        r = {"plain": {"seconds": ps, "tokens": pt, "tok_per_s": pt / ps, "peak_gib": pp},
+        r = {"plain": {"seconds": ps, "tokens": pt, "tok_per_s": pt / ps, "peak_gib": pp, "oom_splits": plain_splits},
              "dflash": {"seconds": ss, "tokens": st, "tok_per_s": st / ss, "peak_gib": sp,
                         "oom_splits": getattr(spec, "oom_splits", 0), **spec.stats.summary()}}
         r["speedup_tok_per_s"] = r["dflash"]["tok_per_s"] / r["plain"]["tok_per_s"]

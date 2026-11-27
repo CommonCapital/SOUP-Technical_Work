@@ -1,0 +1,8 @@
+
+Fetching 10 files:   0%|          | 0/10 [00:00<?, ?it/s]
+Fetching 10 files: 100%|██████████| 10/10 [00:00<00:00, 1322.46it/s]
+drafter: {'drafter_gib': 1.0620665550231934, 'drafter_max_abs_weight': 4.125, 'target_layer_ids': [1, 9, 17, 25, 33], 'block': 16, 'mask_token_id': 151669, 'device': 'Tesla T4'}
+exact: min p over positions 1-15 = 0.244
+accept_all: min p over positions 1-15 = 0
+H22 PASS (exact rule not rejected): True | test has power (biased rule rejected): True
+log: /kaggle/working/soup-grpo/results/logs/dflash_sampling_base.json

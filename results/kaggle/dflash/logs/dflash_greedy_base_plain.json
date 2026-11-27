@@ -1,0 +1,226 @@
+{
+ "drafter_gib": 1.0620665550231934,
+ "drafter_max_abs_weight": 4.125,
+ "target_layer_ids": [
+  1,
+  9,
+  17,
+  25,
+  33
+ ],
+ "block": 16,
+ "mask_token_id": 151669,
+ "device": "Tesla T4",
+ "config": {
+  "cmd": "greedy",
+  "model": "Qwen/Qwen3-4B",
+  "dtype": "fp16",
+  "drafter": "/root/.cache/huggingface/hub/models--z-lab--Qwen3-4B-DFlash-b16/snapshots/b74e3a329c4d963783143b1e970d95b002be72bd",
+  "random_drafter": false,
+  "adapter": null,
+  "data": "data/heldout_n5.jsonl",
+  "n": 96,
+  "batch": 32,
+  "dbatch": 32,
+  "batches": [
+   8,
+   16,
+   32,
+   48
+  ],
+  "max_new": 512,
+  "samples": 2000,
+  "plain": true,
+  "ref": null,
+  "tag": "base_plain"
+ },
+ "n": 96,
+ "dflash": {
+  "passes": 322,
+  "mean_accept_len": 5.737284894837476,
+  "accept_len_hist": {
+   "1": 1002,
+   "2": 1370,
+   "3": 961,
+   "4": 859,
+   "5": 658,
+   "6": 433,
+   "7": 342,
+   "8": 297,
+   "9": 320,
+   "10": 243,
+   "11": 231,
+   "12": 188,
+   "13": 169,
+   "14": 128,
+   "15": 110,
+   "16": 534
+  },
+  "timers": {
+   "prefill": 7.238592301000153,
+   "draft": 48.628899797001395,
+   "verify": 282.59500075099504,
+   "accept": 13.664366585003336
+  },
+  "seconds": 352.22772062600006,
+  "peak_gib": 6.84409761428833,
+  "oom_splits": 0,
+  "tokens": 45105
+ },
+ "nonfinite_events": 0,
+ "plain": {
+  "seconds": 936.0018601960005,
+  "peak_gib": 6.182025909423828,
+  "passes": 1536,
+  "tokens": 44754
+ },
+ "speedup_wall": 2.657377047247963,
+ "vs_plain_here": {
+  "identical": 82,
+  "n": 96,
+  "identical_share": 0.8541666666666666,
+  "divergences": [
+   {
+    "i": 2,
+    "id": "heldout-n5-00002",
+    "pos": 171,
+    "gap": 0.0,
+    "plain_top1": 3838,
+    "dflash_token": 3838,
+    "dflash_is_top2": false,
+    "gap_to_dflash_token": 0.0
+   },
+   {
+    "i": 3,
+    "id": "heldout-n5-00003",
+    "pos": 32,
+    "gap": 0.03125,
+    "plain_top1": 448,
+    "dflash_token": 11,
+    "dflash_is_top2": true,
+    "gap_to_dflash_token": 0.03125
+   },
+   {
+    "i": 8,
+    "id": "heldout-n5-00008",
+    "pos": 305,
+    "gap": 0.0,
+    "plain_top1": 22,
+    "dflash_token": 22,
+    "dflash_is_top2": false,
+    "gap_to_dflash_token": 0.0
+   },
+   {
+    "i": 11,
+    "id": "heldout-n5-00011",
+    "pos": 329,
+    "gap": 0.0,
+    "plain_top1": 24,
+    "dflash_token": 24,
+    "dflash_is_top2": false,
+    "gap_to_dflash_token": 0.0
+   },
+   {
+    "i": 13,
+    "id": "heldout-n5-00013",
+    "pos": 32,
+    "gap": 0.03125,
+    "plain_top1": 1817,
+    "dflash_token": 11,
+    "dflash_is_top2": true,
+    "gap_to_dflash_token": 0.03125
+   },
+   {
+    "i": 19,
+    "id": "heldout-n5-00019",
+    "pos": 215,
+    "gap": 0.03125,
+    "plain_top1": 2303,
+    "dflash_token": 11397,
+    "dflash_is_top2": true,
+    "gap_to_dflash_token": 0.03125
+   },
+   {
+    "i": 24,
+    "id": "heldout-n5-00024",
+    "pos": 49,
+    "gap": 0.03125,
+    "plain_top1": 1855,
+    "dflash_token": 1281,
+    "dflash_is_top2": true,
+    "gap_to_dflash_token": 0.03125
+   },
+   {
+    "i": 27,
+    "id": "heldout-n5-00027",
+    "pos": 446,
+    "gap": 0.03125,
+    "plain_top1": 21,
+    "dflash_token": 17,
+    "dflash_is_top2": true,
+    "gap_to_dflash_token": 0.03125
+   },
+   {
+    "i": 36,
+    "id": "heldout-n5-00036",
+    "pos": 253,
+    "gap": 0.0,
+    "plain_top1": 1447,
+    "dflash_token": 678,
+    "dflash_is_top2": true,
+    "gap_to_dflash_token": 0.0
+   },
+   {
+    "i": 46,
+    "id": "heldout-n5-00046",
+    "pos": 499,
+    "gap": 0.0,
+    "plain_top1": 22,
+    "dflash_token": 22,
+    "dflash_is_top2": false,
+    "gap_to_dflash_token": 0.0
+   },
+   {
+    "i": 52,
+    "id": "heldout-n5-00052",
+    "pos": 40,
+    "gap": 0.0,
+    "plain_top1": 85922,
+    "dflash_token": 85922,
+    "dflash_is_top2": false,
+    "gap_to_dflash_token": 0.0
+   },
+   {
+    "i": 86,
+    "id": "heldout-n5-00086",
+    "pos": 462,
+    "gap": 0.0,
+    "plain_top1": 24196,
+    "dflash_token": 488,
+    "dflash_is_top2": true,
+    "gap_to_dflash_token": 0.0
+   },
+   {
+    "i": 87,
+    "id": "heldout-n5-00087",
+    "pos": 69,
+    "gap": 0.03125,
+    "plain_top1": 24196,
+    "dflash_token": 481,
+    "dflash_is_top2": true,
+    "gap_to_dflash_token": 0.03125
+   },
+   {
+    "i": 88,
+    "id": "heldout-n5-00088",
+    "pos": 32,
+    "gap": 0.03125,
+    "plain_top1": 1817,
+    "dflash_token": 11,
+    "dflash_is_top2": true,
+    "gap_to_dflash_token": 0.03125
+   }
+  ],
+  "all_divergences_near_ties": true
+ }
+}

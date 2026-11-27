@@ -4,7 +4,7 @@ Every number below comes from a saved log in `results/` and is reproduced by
 `uv run python scripts/final_analysis.py` (verification script). Rules and
 predictions were committed to git *before* each run (`predictions/PREDICTIONS.md`,
 commit times are the proof); the experiment log keeps every failure unedited
-(`results/RESULTS_LOG.md`, entries E00–E17).
+(`results/RESULTS_LOG.md`, entries E00–E20).
 
 ## 1. Verdict
 
@@ -79,9 +79,33 @@ prefetch (2 and 3 buffers, checksums on) identical to the CPU engine (E02b).
 
 **Resume (H19):** saving (epoch, position, RNG, adapter, optimizer) atomically gives
 identical IDs/rewards/answers after kill -9 (Mac fake trainer: 10 kills/200 steps;
-0.6B real trainer; 4B on the T4 with a real update). Not run: prefetch on/off and
-residency A/B (H2, H3, H5) and DFlash (H6, H7, H21–H23): the GPU budget went to the
-pilots and both full arms.
+0.6B real trainer; 4B on the T4 with a real update).
+
+**Speed A/B and DFlash (bonus; one extra T4 session, A-B-B-A within it, E19–E20).** DFlash is my own
+re-implementation of the z-lab Qwen3-4B drafter (weights only; 5 layers reading target layers
+1/9/17/25/33, KV injection, block 16), verified on CPU against plain greedy with random, oracle and
+half-oracle drafters; that test found a silent NaN bug (E18). The sweep found a second bug: the OOM
+fallback kept the failed batch's KV cache alive through the exception, so it could never recover
+(E19; earlier runs never split).
+
+| Measured (T4, 8 GB cap) | Predicted | Measured | Verdict |
+|---|---|---|---|
+| Prefetch, decode: share of copy time hidden | < 20%; pass ≈ t_copy | 31%; 0.604 s vs t_copy 0.588 s (off: 0.785 s) | H3 ✗ / ✓ |
+| Prefetch, training phase | > 80% hidden | 7% (0.16 s of 85.6 s; copies only 2.35 s) | H3 ✗ |
+| Equal memory: 0 resident + B 48 vs 8 resident + B 32 | 1.10–1.25× | 1.24× (79.5 vs 63.9 tok/s) | H2 ✓ |
+| 16 layers resident during training only | saves < 1% | −0.57 s per step (load + free cost more) | H5 ✓ |
+| Drafter acceptance, base, greedy | ≥ 3 tokens/pass | 5.74 (paper ≈ 6.5) | D0 ✓ |
+| DFlash speedup, T = 1, 512 tok, B 8 / 16 / 32 | falling with batch | ×3.42 / ×3.09 / ×1.71 | H23 ✓ |
+| Real GRPO step, plain B 48 vs DFlash 2 × 24 | ≥ 2× faster | 421 s vs 432 s (0.98×) | H6 ✗ |
+
+The finding: under the cap, the drafter's ~1.5 GB halves the rollout batch, and plain L2L decoding is
+copy-bound, so its throughput grows almost linearly with batch. DFlash at 24 rows equals plain at 48
+(passes fell 3.2×, but each 16-token verify pass costs 0.80 s instead of 0.60 s). DFlash pays only at
+small batch. Greedy identity (H21) on base: 82/96 answers identical, every divergence at an fp16
+near-tie (top-2 gap ≤ 0.031; the 90% target missed). Sampling is unbiased (H22: all 15 chi-square
+p > 0.05/15, min 0.24; the deliberately biased rule is caught, p ≈ 0). The training-phase prefetch
+result suggests that phase is host-bound (not profiled). The trained adapters were not attached to
+that run, so H7, and H21/H22 with the adapter, are still open.
 
 ## 4. Did the model learn? (proof and its limits)
 
@@ -112,6 +136,8 @@ pilots and both full arms.
 | Mechanics test passes trivially | require a real update in resume / lr = 0 checks | **found (E14):** all rewards 0 → nothing tested; moved to easy puzzles |
 | My own cap formula | recompute from raw nvidia-smi | **found (E12):** +107 MiB baseline not subtracted; fixed |
 | Prefetch race, KV misalignment | CUDA vs CPU equivalence, greedy vs HF | none |
+| Speculative decoding reads unwritten KV | NaN-filled allocator test, rows drifting apart | **found (E18):** masked garbage → NaN (greedy: silent); zero-init |
+| OOM fallback never recovers | Kaggle sweep at batch 48 | **found (E19):** retry ran inside `except`, failed KV kept alive; fixed + test |
 | Thinking mode on, wrong template | assert no `<think>` in outputs | 0% in all runs |
 | Data overlap / unsolvable puzzles | hashes; reference solutions | 0 overlap; all solvable |
 | Resume repeats or skips data | ID logs after kill -9 | identical |
@@ -121,10 +147,12 @@ pilots and both full arms.
 
 ✓ confirmed: H1, H4 (36 copies per pass, independent of batch), H8, H10, H15, H17, H18,
 H19, H20, H24 (n5 23.5%), H25 (mean 46% zero-advantage groups, single steps up to 100%),
-H28, H30, H33. ✗ rejected: **H26, H9(a)** (the verdict), H12, H13, H14, H27 (bf16), **H29**
+H28, H30, H33, H2, H5, D0, H23 (B 8–32), H22 (base). ✗ rejected: **H26, H9(a)** (the verdict), H12, H13, H14, H27 (bf16), **H29**
 (predicted < 30% of ΔW lost, measured 87%: I estimated ΔW at 1e-4–4e-4, real ΔW was mostly
-below half a bf16 step ≈ 6e-5), H31 truncation part, H32 n4 part (56.2 vs ≤ 55). Not run:
-H2, H3, H5, H6, H7, H16 (estimated 3–5% from copy counts, not profiled), H21–H23.
+below half a bf16 step ≈ 6e-5), H31 truncation part, H32 n4 part (56.2 vs ≤ 55), H3 (decode
+compute is ~5.5 ms/layer, not 1–2; training copies are off the critical path), **H6** (DFlash 0.98×
+on a real step). Open: H7, H21/H22 with the adapter, H23 at batch 48 (follow-up notebook ready);
+H16 (estimated 3–5% from copy counts, not profiled).
 
 ## 7. What surprised me, what still concerns me
 
