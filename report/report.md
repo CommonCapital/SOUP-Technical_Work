@@ -191,7 +191,7 @@ ahead on Kaggle with an enforced 8 GB cap rather than stop. I insisted on checki
 model's success rate before any training. I ran every GPU session myself and read the results.
 
 **What the AI did.** An AI coding assistant (Claude Code) wrote the code and notebooks from
-my plan, ran the local tests, did most of the analysis, and drafted this report. I did not take its output on trust. The engine is checked against Hugging Face's
+my plan, ran the local tests, did most of the analysis, and helped write this report. I did not take its output on trust. The engine is checked against Hugging Face's
 reference (fp32, 1e-6), every checker change against answers read by hand and against a
 second independent checker, and every memory and time claim against raw nvidia-smi and host
 logs. Things changed or redone after checking: the checker (E11), the cap formula (E12), the
