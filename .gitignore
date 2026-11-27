@@ -18,7 +18,7 @@ kaggle/*_cells.py
 !results/kaggle/*/runs/
 results/kaggle/**/.lock
 # full-precision adapters stay local (132 MB each); the shipped copy is model/ (fp16, 66 MB)
-!model/**/*.safetensors
+model/**/*.safetensors
 
 # private / internal, not part of the submission
 report/discussion_notes.md
